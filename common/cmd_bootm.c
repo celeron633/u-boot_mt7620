@@ -30,12 +30,14 @@
 #include <image.h>
 #include <malloc.h>
 #include <rt_mmap.h>
+#include <spi_api.h>
 
 #include <environment.h>
 #include <asm/byteorder.h>
 
 #ifdef CONFIG_GZIP
 #include <zlib.h>
+int gunzip(void *dst, int dstlen, unsigned char *src, unsigned long *lenp);
 #endif /* CONFIG_GZIP */
 
 #ifdef CONFIG_BZIP2
@@ -236,7 +238,8 @@ int do_bootm (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 		memmove (&header, (char *)addr, sizeof(image_header_t));
 #elif defined (CFG_ENV_IS_IN_SPI)
 	if (addr >= CFG_FLASH_BASE)
-		raspi_read(&header, (char *)(addr - CFG_FLASH_BASE), sizeof(image_header_t));
+		raspi_read((char *)&header, (unsigned int)(addr - CFG_FLASH_BASE),
+			   sizeof(image_header_t));
 	else
 		memmove (&header, (char *)addr, sizeof(image_header_t));
 #else //CFG_ENV_IS_IN_FLASH
@@ -297,7 +300,8 @@ int do_bootm (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 #elif defined (CFG_ENV_IS_IN_SPI)
 	if (addr >= CFG_FLASH_BASE) {
 		ulong load_addr = CFG_SPINAND_LOAD_ADDR;
-		raspi_read(load_addr, data - CFG_FLASH_BASE, len);
+		raspi_read((char *)load_addr,
+			   (unsigned int)(data - CFG_FLASH_BASE), len);
 		data = load_addr;
 	}
 #else //CFG_ENV_IS_IN_FLASH

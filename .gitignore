@@ -1,8 +1,11 @@
 *.core
 .*.swp
+.config
+autoconf.h
 *.o
 *.a
 .depend
+httpd/fsdata.c
 tools/mkimage
 scripts/lxdialog/lxdialog
 util/addmg

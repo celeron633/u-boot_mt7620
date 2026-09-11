@@ -30,6 +30,7 @@ files_list_tmp="vendors/.files_list"
 
 # YUI Compressor path (should be in the same dir)
 yui_compressor=`ls -t vendors/*.jar 2> /dev/null | tail --lines=1`
+java_cmd=${JAVA:-java}
 
 # Previous fsdata_file var name
 prev_fsdata_struct="NULL"
@@ -67,8 +68,8 @@ function print_data_array() {
 
 	# Content
 	if [ "$_file_ext" == "css"  ]; then
-		if [ -e "$yui_compressor" ]; then
-			_file_content=`java -jar "$yui_compressor" --charset utf-8 "$1" | od -A n -t x1 | tr -d '\r\n' | sed 's/ /0x/;s/ /, 0x/g;s/.\{102\}/&\n/g'`
+		if [ -e "$yui_compressor" ] && command -v "$java_cmd" > /dev/null 2>&1; then
+			_file_content=`"$java_cmd" -jar "$yui_compressor" --charset utf-8 "$1" | od -A n -t x1 | tr -d '\r\n' | sed 's/ /0x/;s/ /, 0x/g;s/.\{102\}/&\n/g'`
 		else
 			_file_content=`cat "$1" | tr -d '\r\n\t' | od -A n -t x1 | tr -d '\r\n' | sed 's/ /0x/;s/ /, 0x/g;s/.\{102\}/&\n/g'`
 		fi

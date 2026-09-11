@@ -648,9 +648,9 @@ CPPFLAGS += -DCFG_ENV_IS_$(CFG_ENV_IS)
 
 ifdef BUILD_TAG
 CFLAGS := $(CPPFLAGS) -Wall -Wstrict-prototypes \
-	-DBUILD_TAG='"$(BUILD_TAG)"'
+	-fgnu89-inline -DBUILD_TAG='"$(BUILD_TAG)"'
 else
-CFLAGS := $(CPPFLAGS) -Wall -Wstrict-prototypes
+CFLAGS := $(CPPFLAGS) -Wall -Wstrict-prototypes -fgnu89-inline
 endif
 
 # avoid trigraph warnings while parsing pci.h (produced by NIOS gcc-2.9)

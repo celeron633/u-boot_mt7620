@@ -64,12 +64,17 @@ extern void  rt2880_eth_halt( struct eth_device* dev );
 extern int incaip_set_cpuclk(void);
 extern int do_bootm (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[]);
 extern int do_tftpb (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[]);
+extern int do_load_serial_bin (cmd_tbl_t *cmdtp, int flag, int argc,
+			       char *argv[]);
 extern int do_mem_cp ( cmd_tbl_t *cmdtp, int flag, int argc, char *argv[]);
 extern int flash_sect_protect (int p, ulong addr_first, ulong addr_last);
 int flash_sect_erase (ulong addr_first, ulong addr_last);
 int get_addr_boundary (ulong *addr);
 extern int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[]);
 extern void input_value(u8 *str);
+#ifdef RALINK_RW_RF_REG_FUN
+int rw_rf_reg(int write, int reg, int *data);
+#endif
 #if defined (MT7620_ASIC_BOARD) || defined (MT7620_FPGA_BOARD)
 extern void rt_gsw_init(void);
 #else
