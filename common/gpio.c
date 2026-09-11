@@ -400,7 +400,9 @@ void rst_fengine(void)
 
 void gpio_init(void)
 {
-#if defined(PSG1218_BOARD)
+#if defined(PSG1218_V225_LAYOUT)
+	printf( "MT7620 PSG1218 gpio init: RESET pin, v22.5 flash layout\n" );
+#elif defined(PSG1218_BOARD)
 	printf( "MT7620 PSG1218 gpio init: RESET pin\n" );
 #else
 	printf( "MT7620 Ai-BR100 gpio init : WPS / RESET pin\n" );

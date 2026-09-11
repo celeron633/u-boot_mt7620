@@ -1106,9 +1106,9 @@ int ranand_erase_write(char *buf, unsigned int offs, int count)
 
 	printf("%s: offs:%x, count:%x\n", __func__, offs, count);
 
-	if (count > (CFG_CHIPSIZE - (CFG_BOOTLOADER_SIZE + CFG_CONFIG_SIZE + CFG_FACTORY_SIZE))) {
+	if (count > (CFG_CHIPSIZE - CFG_FIRMWARE_RESERVED_SIZE)) {
 		printf("Abort: image size larger than %d!\n\n", CFG_CHIPSIZE -
-					(CFG_BOOTLOADER_SIZE + CFG_CONFIG_SIZE + CFG_FACTORY_SIZE));
+					CFG_FIRMWARE_RESERVED_SIZE);
 		udelay(10*1000*1000);
 		return -1;
 	}

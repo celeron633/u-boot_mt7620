@@ -39,6 +39,12 @@ bash ./build-wsl.sh
 CONFIG_FILE=PSG1218 bash ./build-wsl.sh
 ```
 
+保留原厂固件 v22.5 或更新版本的分区布局时：
+
+```sh
+CONFIG_FILE=PSG1218-V22.5 bash ./build-wsl.sh
+```
+
 使用其他保存配置时：
 
 ```sh
@@ -67,7 +73,15 @@ CONFIG_FILE=my-board.config bash ./build-wsl.sh
 | Firmware | `0x50000` | `0x7b0000` |
 
 这个布局对应 PSG1218 和 K2 v22.4 或更早版本。OpenWrt 对 K2 v22.5 或更新
-版本使用从 `0xa0000` 开始的固件分区；需要保留那种布局时，不要直接使用本配置。
+版本使用从 `0xa0000` 开始的固件分区；这种情况应使用 `PSG1218-V22.5`：
+
+| 分区 | 偏移 | 大小 |
+| --- | ---: | ---: |
+| U-Boot | `0x00000` | `0x30000` |
+| U-Boot env | `0x30000` | `0x10000` |
+| Factory | `0x40000` | `0x10000` |
+| Permanent config | `0x50000` | `0x50000` |
+| Firmware | `0xa0000` | `0x760000` |
 
 烧写前仍需核对实际硬件参数：本配置是 MT7620、DDR2 64 MiB、16-bit DRAM
 总线、SPI NOR、链接地址 `0xBC000000`。参数不符时不要直接写入 flash。

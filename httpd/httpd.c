@@ -203,13 +203,15 @@ static int httpd_findandstore_firstchunk(void){
 
 					printf("## Error: wrong file size, should be: %d bytes!\n", WEBFAILSAFE_UPLOAD_ART_SIZE_IN_BYTES);
 					webfailsafe_upload_failed = 1;
-/*
-				// firmware can't exceed: (FLASH_SIZE -  WEBFAILSAFE_UPLOAD_LIMITED_AREA_IN_BYTES)
-				} else if(hs->upload_total > (info->size - WEBFAILSAFE_UPLOAD_LIMITED_AREA_IN_BYTES)){
+
+#ifdef CFG_KERN_SIZE
+				// Firmware must fit between its configured offset and the end of flash.
+				} else if((webfailsafe_upgrade_type == WEBFAILSAFE_UPGRADE_TYPE_FIRMWARE) &&
+					  (hs->upload_total > CFG_KERN_SIZE)){
 
 					printf("## Error: file too big!\n");
 					webfailsafe_upload_failed = 1;
-*/
+#endif
 				}
 
 				printf("Loading: ");

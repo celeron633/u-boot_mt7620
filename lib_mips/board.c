@@ -764,7 +764,7 @@ int copy_image(int dir, unsigned long image_size)
 #else //CFG_ENV_IS_IN_FLASH
 		printf("\nCopy Image:\nImage2(0x%X) to Image1(0x%X), size=0x%X\n", CFG_KERN2_ADDR, CFG_KERN_ADDR, image_size);
 #if defined (ON_BOARD_16M_FLASH_COMPONENT) && (defined (RT2880_ASIC_BOARD) || defined (RT2880_FPGA_BOARD) || defined (RT3052_MP1))
-		len = 0x400000 - (CFG_BOOTLOADER_SIZE + CFG_CONFIG_SIZE + CFG_FACTORY_SIZE);
+		len = 0x400000 - CFG_FIRMWARE_RESERVED_SIZE;
 		if (image_size <= len) {
 			e_end = CFG_KERN_ADDR + image_size - 1;
 			if (get_addr_boundary(&e_end) != 0)
@@ -1528,7 +1528,7 @@ void board_init_r (gd_t *id, ulong dest_addr)
 #else //CFG_ENV_IS_IN_FLASH
 #if (defined (ON_BOARD_8M_FLASH_COMPONENT) || defined (ON_BOARD_16M_FLASH_COMPONENT)) && (defined (RT2880_ASIC_BOARD) || defined (RT2880_FPGA_BOARD) || defined (RT3052_MP1))
 			//erase linux
-			if (NetBootFileXferSize <= (0x400000 - (CFG_BOOTLOADER_SIZE + CFG_CONFIG_SIZE + CFG_FACTORY_SIZE))) {
+			if (NetBootFileXferSize <= (0x400000 - CFG_FIRMWARE_RESERVED_SIZE)) {
 				e_end = CFG_KERN_ADDR + NetBootFileXferSize;
 				if (0 != get_addr_boundary(&e_end))
 					break;
@@ -1537,7 +1537,7 @@ void board_init_r (gd_t *id, ulong dest_addr)
 				flash_sect_erase(CFG_KERN_ADDR, e_end);
 			}
 			else if (NetBootFileXferSize <= CFG_KERN_SIZE) {
-				e_end = PHYS_FLASH_2 + NetBootFileXferSize - (0x400000 - (CFG_BOOTLOADER_SIZE + CFG_CONFIG_SIZE + CFG_FACTORY_SIZE));
+				e_end = PHYS_FLASH_2 + NetBootFileXferSize - (0x400000 - CFG_FIRMWARE_RESERVED_SIZE);
 				if (0 != get_addr_boundary(&e_end))
 					break;
 				printf("Erase linux kernel block !!\n");
@@ -1548,7 +1548,7 @@ void board_init_r (gd_t *id, ulong dest_addr)
 				flash_sect_erase(PHYS_FLASH_2, e_end);
 			}
 #else
-			if (NetBootFileXferSize <= (bd->bi_flashsize - (CFG_BOOTLOADER_SIZE + CFG_CONFIG_SIZE + CFG_FACTORY_SIZE))) {
+			if (NetBootFileXferSize <= (bd->bi_flashsize - CFG_FIRMWARE_RESERVED_SIZE)) {
 				e_end = CFG_KERN_ADDR + NetBootFileXferSize;
 				if (0 != get_addr_boundary(&e_end))
 					break;
