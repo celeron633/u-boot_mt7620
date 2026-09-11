@@ -82,5 +82,9 @@ make -j1 CROSS_COMPILE="$cross_compile" HOSTCC="$host_cc" "$@"
 if [[ -f uboot.bin ]]; then
 	echo
 	echo "Firmware: $repo_dir/uboot.bin"
-	wc -c uboot.bin uboot_128k.bin uboot.img
+	artifacts=(uboot.bin)
+	for artifact in uboot_128k.bin uboot_192k.bin uboot.img; do
+		[[ -f "$artifact" ]] && artifacts+=("$artifact")
+	done
+	wc -c "${artifacts[@]}"
 fi

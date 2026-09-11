@@ -365,11 +365,21 @@ int mtk7620_set_gpio_pin(unsigned short gpio_nr, unsigned int val)
 #endif
 
 void led_init( void ){
+#if defined(PSG1218_BOARD)
+	/* K2: blue/yellow are active-low; red is active-high. */
+	mtk7620_set_gpio_dir( STATUS_LED, 0 );
+	mtk7620_set_gpio_dir( YELLOW_LED, 0 );
+	mtk7620_set_gpio_dir( RED_LED, 0 );
+	mtk7620_set_gpio_pin( STATUS_LED, 0 );	/* boot/status: blue */
+	mtk7620_set_gpio_pin( YELLOW_LED, 1 );
+	mtk7620_set_gpio_pin( RED_LED, 0 );
+#else
 	int i, led[] = { WIFI_2G_LED, WAN_LED };
 	for ( i = 0; i < ARRAY_SIZE( led ); ++i ) {
 		mtk7620_set_gpio_dir( led[i], 0 );	/* Set LED as output */
 		mtk7620_set_gpio_pin( led[i], 0 );	/* turn on LED */
 	}
+#endif
 #if defined(ALL_LED_OFF)
 	mtk7620_set_gpio_dir(ALL_LED_OFF_GPIO_NR, 0);	/* Set LED as output */
 	mtk7620_set_gpio_pin(ALL_LED_OFF_GPIO_NR, 0);	/* turn on LED */
@@ -390,7 +400,11 @@ void rst_fengine(void)
 
 void gpio_init(void)
 {
+#if defined(PSG1218_BOARD)
+	printf( "MT7620 PSG1218 gpio init: RESET pin\n" );
+#else
 	printf( "MT7620 Ai-BR100 gpio init : WPS / RESET pin\n" );
+#endif
 	mtk7620_set_gpio_dir(WPS_BTN, 1);
 }
 
@@ -423,14 +437,22 @@ void PWR_LEDON(void)
 */
 void LEDON( void )
 {
+#if defined(PSG1218_BOARD)
+	mtk7620_set_gpio_pin( STATUS_LED, 0 );
+#else
 	mtk7620_set_gpio_pin( WAN_LED, 0 );
 	mtk7620_set_gpio_pin( WIFI_2G_LED, 0 );
+#endif
 }
 
 void LEDOFF( void )
 {
+#if defined(PSG1218_BOARD)
+	mtk7620_set_gpio_pin( STATUS_LED, 1 );
+#else
 	mtk7620_set_gpio_pin( WAN_LED, 1 );
 	mtk7620_set_gpio_pin( WIFI_2G_LED, 1 );
+#endif
 }
 
 #if defined(ALL_LED_OFF)

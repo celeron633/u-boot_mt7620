@@ -16,5 +16,6 @@ u-boot.map
 u-boot.srec
 uboot.bin
 uboot_128k.bin
+uboot_192k.bin
 uboot.img
 uboot_rom.bin

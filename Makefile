@@ -207,7 +207,13 @@ endif
 #########################################################################
 #########################################################################
 
-ALL = u-boot.srec uboot.bin uboot_128k.bin System.map
+ifeq ($(PSG1218_BOARD),y)
+UBOOT_PADDED_BIN = uboot_192k.bin
+else
+UBOOT_PADDED_BIN = uboot_128k.bin
+endif
+
+ALL = u-boot.srec uboot.bin $(UBOOT_PADDED_BIN) System.map build-note
 ifneq ($(CFG_ENV_IS), IN_FLASH)
 ALL += uboot.img
 endif
@@ -230,7 +236,14 @@ uboot_128k.bin:	uboot.bin
 		dd bs=1024 count=128 if=uboot_128k_junk2 of=$@
 		rm -rf uboot_128k_junk*
 
+uboot_192k.bin:	uboot.bin
+		dd bs=1024 count=192 if=/dev/zero of=uboot_192k_junk1
+		cat $< uboot_192k_junk1 > uboot_192k_junk2
+		dd bs=1024 count=192 if=uboot_192k_junk2 of=$@
+		rm -rf uboot_192k_junk*
 
+.PHONY: build-note
+build-note:	$(UBOOT_PADDED_BIN)
 		@echo ""
 		@echo "===============<<IMPORTANT>>=================="
 ifeq ($(ON_BOARD_NAND_FLASH_COMPONENT),y)
@@ -1730,7 +1743,7 @@ clean:
 	rm -f board/cray/L1/bootscript.c board/cray/L1/bootscript.image
 	rm -f board/trab/trab_fkt
 	rm -f stage1/stage2.bin stage1/stage1n2.elf stage1/stage1n2.map
-	rm -f ./uboot.bin ./uboot.img ./u-boot ./u-boot.* ./uboot_128k*
+	rm -f ./uboot.bin ./uboot.img ./u-boot ./u-boot.* ./uboot_128k* ./uboot_192k*
 	rm -f scripts/lxdialog/lxdialog
 
 clobber:	clean

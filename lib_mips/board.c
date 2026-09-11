@@ -1410,9 +1410,11 @@ void board_init_r (gd_t *id, ulong dest_addr)
 	// wait 0,5s
 	udelay(500000);
 
-	printf( "\nPress press WPS button for more than 2 seconds to run web failsafe mode\n\n" );
+	printf( "\nPress %s button for more than 2 seconds to run web failsafe mode\n\n",
+		FAILSAFE_BUTTON_NAME );
 
-	printf( "WPS button is pressed for: %2d second(s)", counter );
+	printf( "%s button is pressed for: %2d second(s)",
+		FAILSAFE_BUTTON_NAME, counter );
 
 	while( DETECT_WPS() ) {
 
@@ -1426,7 +1428,7 @@ void board_init_r (gd_t *id, ulong dest_addr)
 
 		counter++;
 
-		// how long the WPS button is pressed?
+		// how long the failsafe button is pressed?
 		printf("\b\b\b\b\b\b\b\b\b\b\b\b%2d second(s)", counter);
 
 		if ( !DETECT_WPS() ){
@@ -1442,11 +1444,13 @@ void board_init_r (gd_t *id, ulong dest_addr)
 
 	if ( counter > 0 ) {
 
-		printf( "\n\nWPS button was pressed for %d seconds\nHTTP server is starting for firmware update...\n\n", counter );
+		printf( "\n\n%s button was pressed for %d seconds\nHTTP server is starting for firmware update...\n\n",
+			FAILSAFE_BUTTON_NAME, counter );
 		eth_initialize(gd->bd);
 		NetLoopHttpd();
 	} else {
-		printf( "\n\nCatution: WPS button wasn't pressed or not long enough!\nContinuing normal boot...\n\n" );
+		printf( "\n\nCaution: %s button wasn't pressed or not long enough!\nContinuing normal boot...\n\n",
+			FAILSAFE_BUTTON_NAME );
 	}
 
 /* enter web failsafe mode, added by hubo, July 1st 2014 */

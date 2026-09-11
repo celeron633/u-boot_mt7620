@@ -33,7 +33,13 @@ wsl -d Debian --cd /mnt/d/code/u-boot_mt7620 bash ./build-wsl.sh
 bash ./build-wsl.sh
 ```
 
-脚本默认使用仓库中的 `Ai-BR100` 配置。使用另一个保存配置时：
+脚本默认使用仓库中的 `Ai-BR100` 配置。编译斐讯 K2/PSG1218 时：
+
+```sh
+CONFIG_FILE=PSG1218 bash ./build-wsl.sh
+```
+
+使用其他保存配置时：
 
 ```sh
 CONFIG_FILE=my-board.config bash ./build-wsl.sh
@@ -49,6 +55,19 @@ CONFIG_FILE=my-board.config bash ./build-wsl.sh
 `Ai-BR100` 配置选择 SPI flash 和 `UBOOT_ROM`，因此实际烧写文件是
 `uboot.bin`。`uboot_128k.bin` 是补齐到 128 KiB 的版本；`uboot.img` 带有
 旧 MTK `mkimage` 头，当前 SPI ROM 配置并不使用它。
+
+`PSG1218` 配置同样使用 `uboot.bin`；网页救援升级要求上传完整分区镜像时，
+使用补齐到 192 KiB 的 `uboot_192k.bin`。该配置采用以下 8 MiB flash 布局：
+
+| 分区 | 偏移 | 大小 |
+| --- | ---: | ---: |
+| U-Boot | `0x00000` | `0x30000` |
+| U-Boot env | `0x30000` | `0x10000` |
+| Factory | `0x40000` | `0x10000` |
+| Firmware | `0x50000` | `0x7b0000` |
+
+这个布局对应 PSG1218 和 K2 v22.4 或更早版本。OpenWrt 对 K2 v22.5 或更新
+版本使用从 `0xa0000` 开始的固件分区；需要保留那种布局时，不要直接使用本配置。
 
 烧写前仍需核对实际硬件参数：本配置是 MT7620、DDR2 64 MiB、16-bit DRAM
 总线、SPI NOR、链接地址 `0xBC000000`。参数不符时不要直接写入 flash。

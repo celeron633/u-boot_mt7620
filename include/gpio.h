@@ -3,11 +3,21 @@
 
 #if defined(MT7620_MP)
 /* LED, Button GPIO# definition */
+#if defined(PSG1218_BOARD)
+#define RST_BTN		1
+#define WPS_BTN		RST_BTN
+#define STATUS_LED	10
+#define YELLOW_LED	11
+#define RED_LED		8
+#define FAILSAFE_BUTTON_NAME	"RESET"
+#else
 #define RST_BTN		12
 #define WPS_BTN		12
 //#define PWR_LED	GND
 #define WIFI_2G_LED	72
 #define WAN_LED		44
+#define FAILSAFE_BUTTON_NAME	"WPS"
+#endif
 
 enum gpio_reg_id {
 	GPIO_INT = 0,

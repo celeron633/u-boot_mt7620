@@ -266,7 +266,11 @@
 /* The following #defines are needed to get flash environment right */
 #define	CFG_MONITOR_BASE	TEXT_BASE
 
+#if defined(PSG1218_BOARD)
+#define	CFG_MONITOR_LEN		( 192 << 10 )
+#else
 #define	CFG_MONITOR_LEN		( 128 << 10 )
+#endif
 
 #define CFG_INIT_SP_OFFSET	0x400000
 
@@ -302,7 +306,11 @@
 #define CFG_FACTORY_SIZE	0x10000
 #endif
 */
+#if defined(PSG1218_BOARD)
+#define CFG_BOOTLOADER_SIZE	0x30000
+#else
 #define CFG_BOOTLOADER_SIZE	0x20000
+#endif
 #define CFG_CONFIG_SIZE		0x10000
 #define CFG_FACTORY_SIZE	0x10000
 
@@ -446,8 +454,12 @@
 // U-Boot partition size and offset
 #define WEBFAILSAFE_UPLOAD_UBOOT_ADDRESS		CFG_FLASH_BASE
 
-#define WEBFAILSAFE_UPLOAD_UBOOT_SIZE_IN_BYTES		( 128 * 1024 )
+#define WEBFAILSAFE_UPLOAD_UBOOT_SIZE_IN_BYTES		CFG_BOOTLOADER_SIZE
+#if defined(PSG1218_BOARD)
+#define UPDATE_SCRIPT_UBOOT_SIZE_IN_BYTES		"0x30000"
+#else
 #define UPDATE_SCRIPT_UBOOT_SIZE_IN_BYTES		"0x20000"
+#endif
 
 // Firmware partition offset
 #define WEBFAILSAFE_UPLOAD_KERNEL_ADDRESS		CFG_KERN_ADDR
