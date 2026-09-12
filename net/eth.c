@@ -240,9 +240,6 @@ int eth_initialize( bd_t *bis ) {
 		struct eth_device *dev = eth_devices;
 		char *ethprime = getenv( "ethprime" );
 		unsigned char empty_mac[6]={0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
-#if defined(HC5761_BOARD)
-		char hc5761_mac_ascii[CFG_HC5761_MAC_ASCII_LEN + 1];
-#endif
 
 
 		do {
@@ -259,15 +256,7 @@ int eth_initialize( bd_t *bis ) {
 #define GDMA1_MAC_ADRH  0x30
 
 			//get Ethernet mac address from flash
-#if defined(HC5761_BOARD)
-			memset(hc5761_mac_ascii, 0, sizeof(hc5761_mac_ascii));
-			if (raspi_read(hc5761_mac_ascii,
-				CFG_HC5761_BDINFO_OFFSET + CFG_HC5761_MAC_OFFSET,
-				CFG_HC5761_MAC_ASCII_LEN) == CFG_HC5761_MAC_ASCII_LEN)
-				eth_parse_enetaddr(hc5761_mac_ascii, rt2880_gmac1_mac);
-			else
-				memset(rt2880_gmac1_mac, 0, 6);
-#elif defined (CFG_ENV_IS_IN_NAND)
+#if defined (CFG_ENV_IS_IN_NAND)
 			ranand_read( rt2880_gmac1_mac, 
 				CFG_FACTORY_ADDR - CFG_FLASH_BASE + GMAC0_OFFSET, 6 );
 #elif defined (CFG_ENV_IS_IN_SPI)
