@@ -171,7 +171,7 @@
 #define FLASH_MSG "Flash component: 16 MBytes NOR Flash"
 #elif defined (ON_BOARD_32M_FLASH_COMPONENT)
 #define FLASH_MSG "Flash component: 32 MBytes NOR Flash"
-  #ifndef RT3052_MP2
+  #if !defined(RT3052_MP2) && !defined(YK_L1_BOARD)
   #error "32MB flash is only supported by RT3052 MP2 currently"
   #endif
 #else

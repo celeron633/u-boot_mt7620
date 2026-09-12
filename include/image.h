@@ -126,7 +126,11 @@
 #define IH_COMP_LZMA            3       /* lzma Compression Used        */
 #define IH_COMP_XZ		5	/* xz    Compression Used       */
 
+#if defined(YK_L1_BOARD)
+#define IH_MAGIC	0x12291000	/* Youku stock-compatible image magic */
+#else
 #define IH_MAGIC	0x27051956	/* Image Magic Number		*/
+#endif
 #define IH_NMLEN		32	/* Image Name Length		*/
 
 /*

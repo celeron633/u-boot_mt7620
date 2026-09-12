@@ -207,7 +207,7 @@ endif
 #########################################################################
 #########################################################################
 
-ifeq ($(PSG1218_BOARD),y)
+ifneq ($(filter y,$(PSG1218_BOARD) $(YK_L1_BOARD)),)
 UBOOT_PADDED_BIN = uboot_192k.bin
 else
 UBOOT_PADDED_BIN = uboot_128k.bin

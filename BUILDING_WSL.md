@@ -45,6 +45,12 @@ CONFIG_FILE=PSG1218 bash ./build-wsl.sh
 CONFIG_FILE=PSG1218-V22.5 bash ./build-wsl.sh
 ```
 
+编译优酷路由宝 YK-L1 时：
+
+```sh
+CONFIG_FILE=YK-L1 bash ./build-wsl.sh
+```
+
 使用其他保存配置时：
 
 ```sh
@@ -83,5 +89,18 @@ CONFIG_FILE=my-board.config bash ./build-wsl.sh
 | Permanent config | `0x50000` | `0x50000` |
 | Firmware | `0xa0000` | `0x760000` |
 
-烧写前仍需核对实际硬件参数：本配置是 MT7620、DDR2 64 MiB、16-bit DRAM
+`YK-L1` 配置使用 32 MiB SPI NOR、128 MiB DDR2 和 192 KiB U-Boot 分区：
+
+| 分区 | 偏移 | 大小 |
+| --- | ---: | ---: |
+| U-Boot | `0x000000` | `0x030000` |
+| U-Boot env | `0x030000` | `0x010000` |
+| Factory | `0x040000` | `0x010000` |
+| Firmware | `0x050000` | `0x1fb0000` |
+
+该配置支持 W25Q256/MX25L256 的 4 字节地址，并使用 YK-L1 OpenWrt 镜像所需的
+`0x12291000` uImage magic。不要用于只有 16 MiB flash 的 YK-L1c。
+
+烧写前仍需核对实际硬件参数：PSG1218/K2 配置为 DDR2 64 MiB、8 MiB flash；
+YK-L1 配置为 DDR2 128 MiB、32 MiB flash。它们都是 MT7620、16-bit DRAM
 总线、SPI NOR、链接地址 `0xBC000000`。参数不符时不要直接写入 flash。

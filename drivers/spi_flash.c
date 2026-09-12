@@ -283,6 +283,9 @@ static struct chip_info chips_data [] = {
 	{ "W25Q32BV",		0xef, 0x40160000, 64 * 1024, 64,  0 }, //S25FL032K
 	{ "W25Q64BV",		0xef, 0x40170000, 64 * 1024, 128, 0 }, //S25FL064K
 	{ "W25Q128FV",		0xef, 0x40180000, 64 * 1024, 256, 0 }, //Winbond 25Q128
+#ifndef NO_4B_ADDRESS_SUPPORT
+	{ "W25Q256FV",		0xef, 0x40190000, 64 * 1024, 512, 1 }, //Winbond 25Q256
+#endif
 };
 
 #ifdef COMMAND_MODE

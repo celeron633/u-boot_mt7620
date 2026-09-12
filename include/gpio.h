@@ -3,7 +3,14 @@
 
 #if defined(MT7620_MP)
 /* LED, Button GPIO# definition */
-#if defined(PSG1218_BOARD)
+#if defined(YK_L1_BOARD)
+#define RST_BTN		1
+#define WPS_BTN		RST_BTN
+#define STATUS_LED	29
+#define USB_LED		35
+#define WIFI_2G_LED	72
+#define FAILSAFE_BUTTON_NAME	"RESET"
+#elif defined(PSG1218_BOARD)
 #define RST_BTN		1
 #define WPS_BTN		RST_BTN
 #define STATUS_LED	10
