@@ -143,6 +143,10 @@ Web failsafe 会校验 U-Boot/Factory 镜像的固定大小以及固件分区上
 会显示专用错误页并停止升级，不会擦写 Flash。Flash 中已经保存的环境变量优先于
 上述编译默认值；需要修改现有设备地址时，请同时检查 `ipaddr` 和 `serverip`。
 
+首页还提供“Restore default environment”操作。确认后，U-Boot 会将编译默认值
+写入持久化环境；成功页面显示后需要重启设备。该操作通过现有 `saveenv()` 路径
+保留环境扇区中的其他内容，不会直接擦除整个扇区。
+
 ## 许可证
 
 本项目沿用原 U-Boot 源码的 GNU GPL 许可，详情见 [`COPYING`](COPYING)。

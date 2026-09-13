@@ -229,6 +229,7 @@ extern ulong load_addr;		/* Default Load Address */
 /* common/cmd_nvedit.c */
 int	env_init     (void);
 void	env_relocate (void);
+int	env_reset_to_default (void);
 char	*getenv	     (uchar *);
 int	getenv_r     (uchar *name, uchar *buf, unsigned len);
 int	saveenv	     (void);

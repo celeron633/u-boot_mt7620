@@ -146,6 +146,26 @@ void env_crc_update (void)
 	//env_ptr->crc = crc32(0, env_ptr->data, ENV_SIZE);
 }
 
+int env_reset_to_default (void)
+{
+	DECLARE_GLOBAL_DATA_PTR;
+
+	if (sizeof(default_environment) > ENV_SIZE) {
+		puts ("*** Error - default environment is too large\n\n");
+		return 1;
+	}
+
+	memset (env_ptr, 0, sizeof(env_t));
+	memcpy (env_ptr->data, default_environment,
+		sizeof(default_environment));
+	env_crc_update ();
+
+	gd->env_addr = (ulong)&(env_ptr->data);
+	gd->env_valid = 1;
+
+	return 0;
+}
+
 static uchar env_get_char_init (int index)
 {
 	DECLARE_GLOBAL_DATA_PTR;

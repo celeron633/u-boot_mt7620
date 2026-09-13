@@ -6,6 +6,7 @@
 #define STATE_NONE				0		// empty state (waiting for request...)
 #define STATE_FILE_REQUEST		1		// remote host sent GET request
 #define STATE_UPLOAD_REQUEST	2		// remote host sent POST request
+#define STATE_ENV_RESET_REQUEST	3		// restore persistent environment defaults
 
 // ASCII characters
 #define ISO_G					0x47	// GET
@@ -33,6 +34,8 @@ extern const struct fsdata_file file_404_html;
 extern const struct fsdata_file file_flashing_html;
 extern const struct fsdata_file file_fail_html;
 extern const struct fsdata_file file_firmware_too_big_html;
+extern const struct fsdata_file file_env_reset_ok_html;
+extern const struct fsdata_file file_env_reset_fail_html;
 
 extern int webfailsafe_ready_for_upgrade;
 extern int webfailsafe_upgrade_type;
@@ -289,9 +292,15 @@ void httpd_appcall(void){
 				if(uip_appdata[0] == ISO_G && uip_appdata[1] == ISO_E && uip_appdata[2] == ISO_T && (uip_appdata[3] == ISO_space || uip_appdata[3] == ISO_tab)){
 					hs->state = STATE_FILE_REQUEST;
 				} else if(uip_appdata[0] == ISO_P && uip_appdata[1] == ISO_O && uip_appdata[2] == ISO_S && uip_appdata[3] == ISO_T && (uip_appdata[4] == ISO_space || uip_appdata[4] == ISO_tab)){
-					hs->state = STATE_UPLOAD_REQUEST;
-					webfailsafe_upload_failed = 0;
-					webfailsafe_firmware_too_big = 0;
+					if((uip_len >= sizeof("POST /env_reset ") - 1) &&
+					   !strncmp((char *)uip_appdata, "POST /env_reset ",
+						sizeof("POST /env_reset ") - 1)) {
+						hs->state = STATE_ENV_RESET_REQUEST;
+					} else {
+						hs->state = STATE_UPLOAD_REQUEST;
+						webfailsafe_upload_failed = 0;
+						webfailsafe_firmware_too_big = 0;
+					}
 				}
 
 				// anything else -> abort the connection!
@@ -340,6 +349,31 @@ void httpd_appcall(void){
 
 					// send first (and maybe the last) chunk of data
 					uip_send(hs->dataptr, (hs->upload > uip_mss() ? uip_mss() : hs->upload));
+					return;
+
+				} else if(hs->state == STATE_ENV_RESET_REQUEST){
+
+					int reset_failed;
+
+					puts("Restoring compiled default environment...\n");
+					reset_failed = env_reset_to_default();
+					if(!reset_failed)
+						reset_failed = saveenv();
+
+					if(reset_failed){
+						puts("## Error: failed to save default environment!\n");
+						fs_open(file_env_reset_fail_html.name, &fsfile);
+					} else {
+						puts("Default environment restored. Reboot to apply it.\n");
+						fs_open(file_env_reset_ok_html.name, &fsfile);
+					}
+
+					hs->state = STATE_FILE_REQUEST;
+					hs->dataptr = (u8_t *)fsfile.data;
+					hs->upload = fsfile.len;
+
+					uip_send(hs->dataptr,
+						(hs->upload > uip_mss() ? uip_mss() : hs->upload));
 					return;
 
 				} else if(hs->state == STATE_UPLOAD_REQUEST){

@@ -18,6 +18,11 @@
 					<li>you can upload whatever you want, so be sure that you choose proper firmware image for your device</li>
 				</ul>
 			</div>
+			<div class="i w">
+				<strong>U-Boot environment</strong>
+				<p>Restore all saved U-Boot variables to the defaults compiled into this image. This removes custom boot and network settings.</p>
+				<form method="post" action="/env_reset" onsubmit="return confirm('Restore all U-Boot environment variables to defaults?');"><input type="submit" value="Restore default environment"></form>
+			</div>
 		</div>
 		<div id="f">You can find more information about this project on CleanWrt</div>
 	</body>
