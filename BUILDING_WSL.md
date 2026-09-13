@@ -51,6 +51,12 @@ CONFIG_FILE=PSG1218-V22.5 bash ./build-wsl.sh
 CONFIG_FILE=YK-L1 bash ./build-wsl.sh
 ```
 
+编译极路由 2/HC5761 时：
+
+```sh
+CONFIG_FILE=HC5761 bash ./build-wsl.sh
+```
+
 使用其他保存配置时：
 
 ```sh
@@ -101,6 +107,26 @@ CONFIG_FILE=my-board.config bash ./build-wsl.sh
 该配置支持 W25Q256/MX25L256 的 4 字节地址，并使用 YK-L1 OpenWrt 镜像所需的
 `0x12291000` uImage magic。不要用于只有 16 MiB flash 的 YK-L1c。
 
+`HC5761` 使用 16 MiB flash、128 MiB DDR2，U-Boot 输出同样补齐到 192 KiB。
+分区布局按 OpenWrt 当前设备树配置，并保留 flash 尾部的 OEM、板级信息和备份区域：
+
+| 分区 | 偏移 | 大小 |
+| --- | ---: | ---: |
+| U-Boot | `0x000000` | `0x030000` |
+| hw_panic | `0x030000` | `0x010000` |
+| Factory | `0x040000` | `0x010000` |
+| Firmware | `0x050000` | `0xf70000` |
+| OEM | `0xfc0000` | `0x020000` |
+| bdinfo | `0xfe0000` | `0x010000` |
+| Backup | `0xff0000` | `0x010000` |
+
+U-Boot 会把 `0x030000` 的 64 KiB 区域作为环境区使用，而原厂布局将它命名为
+`hw_panic`；执行 `saveenv` 会改写该区域。Web 和 Shell 固件升级会拒绝大于
+`0xf70000` 的镜像，`erase linux` 也只擦除到 `0xfc0000`，不会覆盖尾部 OEM、
+`bdinfo` 和 Backup。以太网 MAC 从
+`bdinfo + 0x18a` 的 17 字节文本地址读取。
+
 烧写前仍需核对实际硬件参数：PSG1218/K2 配置为 DDR2 64 MiB、8 MiB flash；
-YK-L1 配置为 DDR2 128 MiB、32 MiB flash。它们都是 MT7620、16-bit DRAM
-总线、SPI NOR、链接地址 `0xBC000000`。参数不符时不要直接写入 flash。
+YK-L1 配置为 DDR2 128 MiB、32 MiB flash；HC5761 配置为 DDR2 128 MiB、
+16 MiB flash。它们都是 MT7620、16-bit DRAM 总线、SPI NOR，链接地址
+`0xBC000000`。参数不符时不要直接写入 flash。

@@ -373,6 +373,16 @@ void led_init( void ){
 		mtk7620_set_gpio_pin( led[i], 1 );
 	}
 	mtk7620_set_gpio_pin( STATUS_LED, 0 );
+#elif defined(HC5761_BOARD)
+	/* HC5761 LEDs are active-low; keep USB power enabled while in U-Boot. */
+	int i, led[] = { STATUS_LED, WAN_LED, WIFI_2G_LED, WIFI_5G_LED };
+	for ( i = 0; i < ARRAY_SIZE( led ); ++i ) {
+		mtk7620_set_gpio_dir( led[i], 0 );
+		mtk7620_set_gpio_pin( led[i], 1 );
+	}
+	mtk7620_set_gpio_pin( STATUS_LED, 0 );
+	mtk7620_set_gpio_dir( USB_POWER_GPIO, 0 );
+	mtk7620_set_gpio_pin( USB_POWER_GPIO, 1 );
 #elif defined(PSG1218_BOARD)
 	/* K2: blue/yellow are active-low; red is active-high. */
 	mtk7620_set_gpio_dir( STATUS_LED, 0 );
@@ -410,6 +420,8 @@ void gpio_init(void)
 {
 #if defined(YK_L1_BOARD)
 	printf( "MT7620 YK-L1 gpio init: RESET pin\n" );
+#elif defined(HC5761_BOARD)
+	printf( "MT7620 HC5761 gpio init: RESET pin\n" );
 #elif defined(PSG1218_V225_LAYOUT)
 	printf( "MT7620 PSG1218 gpio init: RESET pin, v22.5 flash layout\n" );
 #elif defined(PSG1218_BOARD)
@@ -449,7 +461,7 @@ void PWR_LEDON(void)
 */
 void LEDON( void )
 {
-#if defined(PSG1218_BOARD) || defined(YK_L1_BOARD)
+#if defined(PSG1218_BOARD) || defined(YK_L1_BOARD) || defined(HC5761_BOARD)
 	mtk7620_set_gpio_pin( STATUS_LED, 0 );
 #else
 	mtk7620_set_gpio_pin( WAN_LED, 0 );
@@ -459,7 +471,7 @@ void LEDON( void )
 
 void LEDOFF( void )
 {
-#if defined(PSG1218_BOARD) || defined(YK_L1_BOARD)
+#if defined(PSG1218_BOARD) || defined(YK_L1_BOARD) || defined(HC5761_BOARD)
 	mtk7620_set_gpio_pin( STATUS_LED, 1 );
 #else
 	mtk7620_set_gpio_pin( WAN_LED, 1 );

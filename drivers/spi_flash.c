@@ -1151,13 +1151,18 @@ int raspi_erase_write(char *buf, unsigned int offs, int count)
 {
 	int blocksize = spi_chip_info->sector_size;
 	int blockmask = blocksize - 1;
+	unsigned int max_image_size;
 
 	ra_dbg("%s: offs:%x, count:%x\n", __func__, offs, count);
 
-	if (count > (spi_chip_info->sector_size * spi_chip_info->n_sectors) -
-			CFG_FIRMWARE_RESERVED_SIZE) {
-		printf("Abort: image size larger than %d!\n\n", (spi_chip_info->sector_size * spi_chip_info->n_sectors) -
-				CFG_FIRMWARE_RESERVED_SIZE);
+#if defined(HC5761_BOARD)
+	max_image_size = CFG_KERN_SIZE;
+#else
+	max_image_size = (spi_chip_info->sector_size * spi_chip_info->n_sectors) -
+			CFG_FIRMWARE_RESERVED_SIZE;
+#endif
+	if (count > max_image_size) {
+		printf("Abort: image size larger than %u!\n\n", max_image_size);
 		udelay(10*1000*1000);
 		return -1;
 	}
@@ -1313,7 +1318,7 @@ U_BOOT_CMD(
 
 int do_flerase (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 {
-	int rcode, size;
+	int rcode, size, linux_size;
 
 	if (argc < 2) {
 		printf ("Usage:\n%s\n", cmdtp->usage);
@@ -1323,12 +1328,17 @@ int do_flerase (cmd_tbl_t *cmdtp, int flag, int argc, char *argv[])
 	size = spi_chip_info->sector_size * spi_chip_info->n_sectors;
 	if (strcmp(argv[1], "linux") == 0) 
 	{
+#if defined(HC5761_BOARD)
+		linux_size = CFG_KERN_SIZE;
+#else
+		linux_size = size - CFG_FIRMWARE_RESERVED_SIZE;
+#endif
 		printf("\n Erase linux kernel block !!\n");
 		printf("From 0x%X length 0x%X\n", CFG_KERN_ADDR - CFG_FLASH_BASE,
-				size - CFG_FIRMWARE_RESERVED_SIZE);
+				linux_size);
 		raspi_unprotect();
 		rcode = raspi_erase(CFG_KERN_ADDR - CFG_FLASH_BASE,
-				size - CFG_FIRMWARE_RESERVED_SIZE);
+				linux_size);
 		return rcode;
 	}
 	else if (strcmp(argv[1], "uboot") == 0) 
