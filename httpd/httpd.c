@@ -32,6 +32,7 @@ extern const struct fsdata_file file_index_html;
 extern const struct fsdata_file file_404_html;
 extern const struct fsdata_file file_flashing_html;
 extern const struct fsdata_file file_fail_html;
+extern const struct fsdata_file file_firmware_too_big_html;
 
 extern int webfailsafe_ready_for_upgrade;
 extern int webfailsafe_upgrade_type;
@@ -45,6 +46,7 @@ struct httpd_state *hs;
 
 static int webfailsafe_post_done = 0;
 static int webfailsafe_upload_failed = 0;
+static int webfailsafe_firmware_too_big = 0;
 static int data_start_found = 0;
 
 static unsigned char post_packet_counter = 0;
@@ -209,8 +211,10 @@ static int httpd_findandstore_firstchunk(void){
 				} else if((webfailsafe_upgrade_type == WEBFAILSAFE_UPGRADE_TYPE_FIRMWARE) &&
 					  (hs->upload_total > CFG_KERN_SIZE)){
 
-					printf("## Error: file too big!\n");
+					printf("## Error: firmware size %u exceeds maximum %u bytes!\n",
+						hs->upload_total, CFG_KERN_SIZE);
 					webfailsafe_upload_failed = 1;
+					webfailsafe_firmware_too_big = 1;
 #endif
 				}
 
@@ -286,6 +290,8 @@ void httpd_appcall(void){
 					hs->state = STATE_FILE_REQUEST;
 				} else if(uip_appdata[0] == ISO_P && uip_appdata[1] == ISO_O && uip_appdata[2] == ISO_S && uip_appdata[3] == ISO_T && (uip_appdata[4] == ISO_space || uip_appdata[4] == ISO_tab)){
 					hs->state = STATE_UPLOAD_REQUEST;
+					webfailsafe_upload_failed = 0;
+					webfailsafe_firmware_too_big = 0;
 				}
 
 				// anything else -> abort the connection!
@@ -499,6 +505,7 @@ void httpd_appcall(void){
 
 							webfailsafe_post_done = 0;
 							webfailsafe_upload_failed = 0;
+							webfailsafe_firmware_too_big = 0;
 						}
 
 						httpd_state_reset();
@@ -576,6 +583,8 @@ void httpd_appcall(void){
 						// which website will be returned
 						if(!webfailsafe_upload_failed){
 							fs_open(file_flashing_html.name, &fsfile);
+						} else if(webfailsafe_firmware_too_big) {
+							fs_open(file_firmware_too_big_html.name, &fsfile);
 						} else {
 							fs_open(file_fail_html.name, &fsfile);
 						}
