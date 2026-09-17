@@ -3,6 +3,7 @@
 
 void HttpdStart(void);
 void HttpdHandler(void);
+ulong HttpdRelocOff(void);
 
 /* board specific implementation */
 extern int do_http_upgrade(const ulong size, const int upgrade_type);

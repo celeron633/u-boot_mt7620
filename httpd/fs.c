@@ -53,6 +53,16 @@
 
 #include "fsdata.c"
 
+/* Defined in net/httpd.c - see the long comment there.  The pointers
+   stored inside the fsdata table are link time addresses that U-Boot's
+   relocation does not fix up, so every one of them has to be adjusted
+   before it is dereferenced.  FS_ROOT and string literals do not, they
+   are resolved through the GOT. */
+extern unsigned long HttpdRelocOff(void);
+
+#define FS_FIXUP(p, type) \
+	((type)((p) == 0 ? 0 : (unsigned long)(p) + HttpdRelocOff()))
+
 #ifdef FS_STATISTICS
 #if FS_STATISTICS == 1
 static u16_t count[FS_NUMFILES];
@@ -63,23 +73,24 @@ static u16_t count[FS_NUMFILES];
 static u8_t
 fs_strcmp(const char *str1, const char *str2)
 {
-  u8_t i;
-  i = 0;
- loop:
+  /* i used to be a u8_t, which wraps back to 0 after 255 characters and
+     turns this into an endless loop whenever both strings run that long
+     without a terminator - e.g. when f->name is a corrupted pointer. */
+  unsigned int i;
 
-  if(str2[i] == 0 ||
-     str1[i] == '\r' || 
-     str1[i] == '\n') {
-    return 0;
+  for(i = 0; i < 64; ++i) {
+    if(str2[i] == 0 ||
+       str1[i] == '\r' ||
+       str1[i] == '\n') {
+      return 0;
+    }
+
+    if(str1[i] != str2[i]) {
+      return 1;
+    }
   }
 
-  if(str1[i] != str2[i]) {
-    return 1;
-  }
-
-
-  ++i;
-  goto loop;
+  return 1;
 }
 /*-----------------------------------------------------------------------------------*/
 int
@@ -91,13 +102,23 @@ fs_open(const char *name, struct fs_file *file)
 #endif /* FS_STATISTICS */
 #endif /* FS_STATISTICS */
   struct fsdata_file_noconst *f;
+  unsigned int guard;
 
-  for(f = (struct fsdata_file_noconst *)FS_ROOT;
+  for(f = (struct fsdata_file_noconst *)FS_ROOT, guard = 0;
       f != NULL;
-      f = (struct fsdata_file_noconst *)f->next) {
+      f = FS_FIXUP(f->next, struct fsdata_file_noconst *), ++guard) {
 
-    if(fs_strcmp(name, f->name) == 0) {
-      file->data = f->data;
+    /* The table is a static linked list of exactly FS_NUMFILES entries.
+       If ->next ever points somewhere else we would walk random memory
+       and hand a wild ->data pointer back to the caller, so stop. */
+    if(guard >= FS_NUMFILES || f->name == NULL || f->data == NULL) {
+      printf("## Error: fsdata chain corrupted at entry %u (f=0x%08X)!\n",
+	     guard, (unsigned int)f);
+      return 0;
+    }
+
+    if(fs_strcmp(name, FS_FIXUP(f->name, char *)) == 0) {
+      file->data = FS_FIXUP(f->data, char *);
       file->len = f->len;
 #ifdef FS_STATISTICS
 #if FS_STATISTICS == 1

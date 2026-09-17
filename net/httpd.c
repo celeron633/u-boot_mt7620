@@ -21,6 +21,29 @@
 
 static int arptimer = 0;
 
+/*
+ * U-Boot links at TEXT_BASE (flash) and copies itself into RAM, but
+ * relocate_code() in cpu/.../start.S only fixes up the GOT.  Anything the
+ * compiler resolves by symbol name - globals, string literals - is
+ * therefore correct after relocation, while absolute pointers stored
+ * *inside* initialised aggregates still hold link time addresses.
+ *
+ * The httpd file table in fsdata.c is exactly such an aggregate: its
+ * ->next/->name/->data fields keep pointing into the memory mapped SPI
+ * flash window at 0xBC......, which is only readable while the flash is
+ * in 3 byte address mode.  On boards with a 32 MiB part that window
+ * returns a constant word instead of the image, so the web server ends up
+ * serving garbage from a dead pointer.
+ *
+ * lib_mips/board.c fixes the U-Boot command table and env_name_spec the
+ * same way; this just exposes the offset to httpd/fs.c.
+ */
+ulong HttpdRelocOff( void ){
+	DECLARE_GLOBAL_DATA_PTR;
+
+	return gd->reloc_off;
+}
+
 void HttpdHandler( void ){
 	int i;
 

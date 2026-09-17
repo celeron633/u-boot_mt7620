@@ -333,16 +333,39 @@ void httpd_appcall(void){
 					printf("Request for: ");
 					printf("%s\n", &uip_appdata[4]);
 
+					// fsfile is a stack variable: fs_open() leaves it
+					// untouched when it fails, so never use it without
+					// checking the return value.  A bogus fsfile.data /
+					// fsfile.len is handed straight to uip_send(), which
+					// sends whatever that pointer happens to hit.
+					fsfile.data = NULL;
+					fsfile.len = 0;
+
 					// request for /
 					if(uip_appdata[4] == ISO_slash && uip_appdata[5] == 0){
-						fs_open(file_index_html.name, &fsfile);
+						if(!fs_open("/index.html", &fsfile)){
+							printf("## Error: index.html missing from fsdata!\n");
+						}
 					} else {
 						// check if we have requested file
 						if(!fs_open((const char *)&uip_appdata[4], &fsfile)){
 							printf("## Error: file not found!\n");
-							fs_open(file_404_html.name, &fsfile);
+							if(!fs_open("/404.html", &fsfile)){
+								printf("## Error: 404.html missing from fsdata!\n");
+							}
 						}
 					}
+
+					if(!fsfile.data || fsfile.len <= 0){
+						printf("## Error: fs_open() gave no data (data=0x%08X len=%d)!\n",
+							(unsigned int)fsfile.data, fsfile.len);
+						httpd_state_reset();
+						uip_abort();
+						return;
+					}
+
+					printf("Serving %d bytes from 0x%08X\n",
+						fsfile.len, (unsigned int)fsfile.data);
 
 					hs->state = STATE_FILE_REQUEST;
 					hs->dataptr = (u8_t *)fsfile.data;
@@ -356,6 +379,9 @@ void httpd_appcall(void){
 
 					int reset_failed;
 
+					fsfile.data = NULL;
+					fsfile.len = 0;
+
 					puts("Restoring compiled default environment...\n");
 					reset_failed = env_reset_to_default();
 					if(!reset_failed)
@@ -363,10 +389,18 @@ void httpd_appcall(void){
 
 					if(reset_failed){
 						puts("## Error: failed to save default environment!\n");
-						fs_open(file_env_reset_fail_html.name, &fsfile);
+						fs_open("/env_reset_fail.html", &fsfile);
 					} else {
 						puts("Default environment restored. Reboot to apply it.\n");
-						fs_open(file_env_reset_ok_html.name, &fsfile);
+						fs_open("/env_reset_ok.html", &fsfile);
+					}
+
+					if(!fsfile.data || fsfile.len <= 0){
+						printf("## Error: fs_open() gave no data (data=0x%08X len=%d)!\n",
+							(unsigned int)fsfile.data, fsfile.len);
+						httpd_state_reset();
+						uip_abort();
+						return;
 					}
 
 					hs->state = STATE_FILE_REQUEST;
@@ -617,11 +651,11 @@ void httpd_appcall(void){
 
 						// which website will be returned
 						if(!webfailsafe_upload_failed){
-							fs_open(file_flashing_html.name, &fsfile);
+							fs_open("/flashing.html", &fsfile);
 						} else if(webfailsafe_firmware_too_big) {
-							fs_open(file_firmware_too_big_html.name, &fsfile);
+							fs_open("/firmware_too_big.html", &fsfile);
 						} else {
-							fs_open(file_fail_html.name, &fsfile);
+							fs_open("/fail.html", &fsfile);
 						}
 
 						httpd_state_reset();
