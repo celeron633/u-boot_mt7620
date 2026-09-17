@@ -307,7 +307,7 @@ typedef unsigned short uip_stats_t;
  *
  * \hideinitializer
  */
-#define UIP_CONNS       2
+#define UIP_CONNS       8
 
 /**
  * The maximum number of simultaneously listening TCP ports.
@@ -397,7 +397,7 @@ typedef unsigned short uip_stats_t;
  *
  * \hideinitializer
  */
-#define UIP_ARPTAB_SIZE 2
+#define UIP_ARPTAB_SIZE 8
 
 /**
  * The maxium age of ARP table entries measured in 10ths of seconds.

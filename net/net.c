@@ -1820,6 +1820,18 @@ void NetSendHttpd( void ){
 }
 
 void NetReceiveHttpd( volatile uchar * inpkt, int len ) {
+	/*
+	 *	uip_buf is UIP_BUFSIZE+2 bytes and uip_hostaddr lives right
+	 *	behind it in BSS.  A full sized frame (or one that still
+	 *	carries the FCS) would overflow the buffer and wipe our own
+	 *	IP address, after which uIP drops every packet as "not for
+	 *	us".  We never advertise an MSS that needs more than
+	 *	UIP_BUFSIZE, so anything bigger cannot be for us anyway.
+	 */
+	if ( len < ( int )sizeof( struct uip_eth_hdr ) || len > UIP_BUFSIZE ) {
+		return;
+	}
+
 	memcpy( uip_buf, ( const void * )inpkt, len );
 	uip_len = len;
 
@@ -1852,6 +1864,7 @@ int NetLoopHttpd( void ){
 	bd_t *bd = gd->bd;
 	unsigned short int ip[2];
 	unsigned char ethinit_attempt = 0;
+	ulong httpd_timer_start;
 	struct uip_eth_addr eaddr;
 
 #ifdef CONFIG_NET_MULTI
@@ -1981,6 +1994,7 @@ restart:
 	do_http_progress( WEBFAILSAFE_PROGRESS_START );
 
 	webfailsafe_is_running = 1;
+	httpd_timer_start = get_timer( 0 );
 
 	// infinite loop
 	for ( ; ; ) {
@@ -1989,8 +2003,15 @@ restart:
 		 *	Check the ethernet for a new packet.
 		 *	The ethernet receive routine will process it.
 		 */
-		if ( eth_rx() > 0 ) {
+		eth_rx();
+
+		/* uIP expects its periodic timer to run every 500 ms.  Incoming
+		 * packets are already handled by NetReceiveHttpd(), so only run
+		 * the timer path here. */
+		if ( get_timer( httpd_timer_start ) >= CFG_HZ / 2 ) {
+			uip_len = 0;
 			HttpdHandler();
+			httpd_timer_start = get_timer( 0 );
 		}
 
 		// if CTRL+C was pressed -> return!

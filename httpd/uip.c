@@ -918,16 +918,32 @@ uip_process(u8_t flag)
      CLOSED connections are found. Thanks to Eddie C. Dost for a very
      nice algorithm for the TIME_WAIT search. */
   uip_connr = 0;
-  for(c = 0; c < UIP_CONNS; ++c) {
-    if(uip_conns[c].tcpstateflags == CLOSED) {
-      uip_connr = &uip_conns[c];
-      break;
-    }
-    if(uip_conns[c].tcpstateflags == TIME_WAIT) {
-      if(uip_connr == 0 ||
-	 uip_conns[c].timer > uip_connr->timer) {
+  {
+    /* Last resort: a connection that is neither CLOSED nor TIME_WAIT but
+       that the peer has clearly abandoned (half open handshake, half
+       closed teardown).  Without this a browser that leaves a few
+       speculative connections behind makes the server deaf forever. */
+    struct uip_conn *stale = 0;
+
+    for(c = 0; c < UIP_CONNS; ++c) {
+      if(uip_conns[c].tcpstateflags == CLOSED) {
 	uip_connr = &uip_conns[c];
+	break;
       }
+      if(uip_conns[c].tcpstateflags == TIME_WAIT) {
+	if(uip_connr == 0 ||
+	   uip_conns[c].timer > uip_connr->timer) {
+	  uip_connr = &uip_conns[c];
+	}
+      }
+      if((uip_conns[c].tcpstateflags & TS_MASK) != ESTABLISHED &&
+	 (stale == 0 || uip_conns[c].nrtx > stale->nrtx)) {
+	stale = &uip_conns[c];
+      }
+    }
+
+    if(uip_connr == 0) {
+      uip_connr = stale;
     }
   }
 
