@@ -205,3 +205,8 @@ python3 tools/mt7620emu.py 可疑镜像.bin --step 500000
 
 所以 `.github/workflows/build.yml` 固定在 `debian:trixie` 容器里构建，并在编译前
 断言宿主和交叉 GCC 主版本号都是 14，不符就让构建失败、不产出任何固件。
+
+钉住工具链只能防住已知的那一种情况，所以 `build-wsl.sh` 在链接完成后还会直接检查
+产物本身：ELF 标志必须同时含 `pic` 和 `cpic`，且 `.text` 里不能出现绝对 `jal`
+（`jalr t9` 这种走 GOT 的间接调用不算）。任何工具链只要掉了 PIC 就会在这里失败，
+不会走到产出固件那一步。
