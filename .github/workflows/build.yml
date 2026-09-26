@@ -18,15 +18,40 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # BUILDING_WSL.md verifies exactly one toolchain: Debian 13 (trixie) with
+    # GCC 14 and mipsel-linux-gnu-gcc 14. ubuntu-latest ships GCC 13 cross
+    # tools and drifts on every runner-image bump. GCC 13 compiled this tree
+    # without PIC -- 315 absolute `jal` calls and no _gp_disp prologues -- and
+    # since start.S relocates the image out of the 0xBC000000 flash window, a
+    # region-absolute `jal` lands somewhere else once running from RAM. The
+    # resulting image bricked an HC5761. Build in the verified distro rather
+    # than whatever the runner happens to ship.
+    container: debian:trixie
     steps:
-      - uses: actions/checkout@v4
-
       - name: Install toolchain
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential gcc-mipsel-linux-gnu binutils-mipsel-linux-gnu \
-            zlib1g-dev default-jre-headless
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates git make build-essential \
+            gcc-mipsel-linux-gnu binutils-mipsel-linux-gnu \
+            zlib1g-dev default-jre-headless zip
+
+      - uses: actions/checkout@v4
+
+      - name: Pin down the toolchain
+        run: |
+          git config --global --add safe.directory '*'
+          target_gcc=$(mipsel-linux-gnu-gcc -dumpversion | cut -d. -f1)
+          host_gcc=$(gcc -dumpversion | cut -d. -f1)
+          mipsel-linux-gnu-gcc --version | head -1
+          mipsel-linux-gnu-ld --version | head -1
+          gcc --version | head -1
+          if [ "$target_gcc" != "14" ] || [ "$host_gcc" != "14" ]; then
+            echo "::error::Expected GCC 14 (the combination verified in" \
+              "BUILDING_WSL.md), got target $target_gcc / host $host_gcc." \
+              "Refusing to publish bootloader images from an unverified toolchain."
+            exit 1
+          fi
 
       - name: Build all boards
         env:

@@ -178,3 +178,30 @@ python3 tools/mt7620emu.py 可疑镜像.bin --step 500000
 外设只是打桩，所以启动后期的一些行为是模拟器的产物而非真实现象（例如会打印
 `Watchdog Reset Occurred`，也会在某个轮询循环里停住）。这个工具用来对比"好镜像
 跑到哪 / 坏镜像死在哪"，不是周期精确的仿真。
+
+## 为什么必须用验证过的工具链
+
+只有本文顶部那套工具链（Debian 13 / GCC 14 / binutils 2.44）经过验证。
+
+`cpu/ralink_soc/config.mk` 用 `-mabicalls` 把整棵树编成 PIC，`start.S` 的
+`relocate_code` 把镜像从 `0xBC000000` 的 flash 窗口搬到内存再跳过去执行。MIPS 的
+`jal` 是**区域内绝对跳转**，目标地址等于 `(PC & 0xF0000000) | (imm26 << 2)`，只有
+在 flash 窗口里执行才算得对；搬到 `0x87FB0000` 之后高四位变了，同一条 `jal` 就会
+跳到别处。所以跨函数调用必须走 GOT（`lw t9,off(gp)` + `jalr t9`），这也是
+`relocate_code` 之后要在 `in_ram` 里重定位 GOT 的原因。
+
+2026-09-26 用 Ubuntu 24.04 自带的 GCC 13 交叉工具链编出的 HC5761 镜像不是 PIC：
+
+| | GCC 14（验证过） | GCC 13 |
+| --- | ---: | ---: |
+| 绝对 `jal 0x…` | 0 | 315 |
+| PIC 序言 `addu gp,gp,t9` | 242 | 0 |
+| 绝对 `lui gp,0xbc..` | 0 | 157 |
+| `num_got_entries` | 305 | 192 |
+
+它能打印版本横幅、认出 128 MB 内存、完成 relocate_code，然后在 `0x87FBEB04`
+（链接地址 `0xBC00EB04`）执行 `jal 0xbc00ea90` 时跳到 `0x8C00EA90`，落进刚清零的
+内存里一路执行 `nop`，板子就此变砖。用 `tools/mt7620emu.py` 可以复现这个过程。
+
+所以 `.github/workflows/build.yml` 固定在 `debian:trixie` 容器里构建，并在编译前
+断言宿主和交叉 GCC 主版本号都是 14，不符就让构建失败、不产出任何固件。
