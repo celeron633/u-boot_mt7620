@@ -143,3 +143,38 @@ U-Boot 会把 `0x030000` 的 64 KiB 区域作为环境区使用，而原厂布�
 YK-L1 配置为 DDR2 128 MiB、32 MiB flash；HC5761 配置为 DDR2 128 MiB、
 16 MiB flash。它们都是 MT7620、16-bit DRAM 总线、SPI NOR，链接地址
 `0xBC000000`。参数不符时不要直接写入 flash。
+
+## 用模拟器排查启动问题
+
+`tools/mt7620emu.py` 是一个基于 Unicorn 的 MT7620 模拟器，用来判断一个镜像到底能
+不能跑起来、卡在哪里，不用接串口也不用拆机。需要 Python 3 和 Unicorn：
+
+```sh
+pip install unicorn
+```
+
+跑一个镜像（`--symbols` 可选，有对应构建的 `System.map` 时能把地址翻成符号名）：
+
+```sh
+python3 tools/mt7620emu.py dist/HC5761/HC5761_uboot_192k.bin \
+	--symbols System.map
+```
+
+镜像跑飞时用 `--step` 分块执行，这样即使 Unicorn 自己崩掉，之前刷出来的串口输出
+和跳飞位置也已经打印出来了：
+
+```sh
+python3 tools/mt7620emu.py 可疑镜像.bin --step 500000
+```
+
+它模拟的东西：SPI flash 映射在物理 `0x1C000000`（Unicorn 会做 MIPS 的 KSEG 地址
+转换，所以映射的是物理地址）、128 MiB DDR 并带真实的回绕别名（`get_ram_size()`
+靠回绕探测容量）、Ralink 寄存器打桩、以及 UART Lite 控制台，所以 U-Boot 自己的
+输出会直接打出来。
+
+两个关键结论：串口输出停在哪一行，以及 `escaped` 这一行——`no` 表示始终在合法代
+码里执行，`yes` 表示跳到了代码段外面（那就是不会启动的镜像）。
+
+外设只是打桩，所以启动后期的一些行为是模拟器的产物而非真实现象（例如会打印
+`Watchdog Reset Occurred`，也会在某个轮询循环里停住）。这个工具用来对比"好镜像
+跑到哪 / 坏镜像死在哪"，不是周期精确的仿真。
