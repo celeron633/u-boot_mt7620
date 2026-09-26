@@ -9,6 +9,7 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 cd "$repo_dir"
 
+cross_compile=${CROSS_COMPILE:-mipsel-linux-gnu-}
 device_vendor=${DEVICE_VENDOR:-cleanwrt}
 out_dir=${OUT_DIR:-dist}
 
@@ -48,6 +49,12 @@ manifest="$stage_dir/MANIFEST.txt"
 	echo "commit : ${GITHUB_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 	echo "built  : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 	echo "vendor : ${device_vendor}"
+	echo "target : $(${cross_compile}gcc --version | head -1)"
+	echo "binutil: $(${cross_compile}ld --version | head -1)"
+	echo "host   : $(${HOSTCC:-gcc} --version | head -1)"
+	echo
+	echo "Only the toolchain recorded above is verified (see BUILDING_WSL.md);"
+	echo "images built with another compiler are untested on real hardware."
 	echo
 	printf '%-14s %-34s %9s  %s\n' MODEL FILE BYTES MD5
 } > "$manifest"
@@ -83,6 +90,11 @@ All three hold identical code; only the trailing zero padding differs.
 Web recovery upload wants the image that matches the partition size.
 Writing a padded image larger than the U-Boot partition overwrites what
 follows it, so do not use the 192 KiB file on a 128 KiB partition.
+
+WARNING: a bad bootloader image does not boot and cannot be recovered over
+the network -- it needs an SPI programmer. Before writing, dump the current
+0x0-0x30000 to a file and keep it. Only the toolchain recorded in
+MANIFEST.txt is verified; see BUILDING_WSL.md.
 NOTE
 
 	for f in "$model_dir"/*.bin; do

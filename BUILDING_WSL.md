@@ -210,3 +210,20 @@ python3 tools/mt7620emu.py 可疑镜像.bin --step 500000
 产物本身：ELF 标志必须同时含 `pic` 和 `cpic`，且 `.text` 里不能出现绝对 `jal`
 （`jalr t9` 这种走 GOT 的间接调用不算）。任何工具链只要掉了 PIC 就会在这里失败，
 不会走到产出固件那一步。
+
+## 烧写前核对镜像
+
+`lib_mips/board.c` 把 `__DATE__`/`__TIME__` 编进了 `version_string`，所以同一个提交
+两次编译的校验和永远不同，**不能用 md5 判断两个镜像是不是同一份代码**。用
+`compare-image.sh` 比，它会忽略版本横幅里的时间戳：
+
+```sh
+bash compare-image.sh 下载到的.bin dist/HC5761/HC5761_uboot_192k.bin
+```
+
+输出 `SAME CODE` 表示两者代码完全相同，可以烧写；输出 `DIFFERENT CODE` 表示构建
+环境有差异，**先查清原因再说**，别直接刷。尺寸不一致、文件不存在或为空都会报错
+退出，不会误报成一致。
+
+`dist/MANIFEST.txt` 里记录了本次实际使用的交叉编译器、binutils 和宿主编译器版本，
+可以用来核对产物是不是验证过的工具链编的。
