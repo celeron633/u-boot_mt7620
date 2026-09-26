@@ -19,3 +19,4 @@ uboot_128k.bin
 uboot_192k.bin
 uboot.img
 uboot_rom.bin
+dist/

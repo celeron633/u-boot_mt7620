@@ -1,0 +1,60 @@
+name: build
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      device_vendor:
+        description: 'httpd page set (directory under httpd/vendors)'
+        required: false
+        default: cleanwrt
+        type: choice
+        options: [cleanwrt, general]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential gcc-mipsel-linux-gnu binutils-mipsel-linux-gnu \
+            zlib1g-dev default-jre-headless
+
+      - name: Build all boards
+        env:
+          DEVICE_VENDOR: ${{ inputs.device_vendor || 'cleanwrt' }}
+        run: bash ./build-all.sh
+
+      - name: Summary
+        run: |
+          {
+            echo '## Firmware'
+            echo '```'
+            cat dist/MANIFEST.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uboot-mt7620-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+
+      - name: Package release archive
+        if: startsWith(github.ref, 'refs/tags/')
+        run: cd dist && zip -r "../uboot-mt7620-${GITHUB_REF_NAME}.zip" .
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: uboot-mt7620-${{ github.ref_name }}.zip
+          body_path: dist/MANIFEST.txt

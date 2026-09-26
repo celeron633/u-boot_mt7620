@@ -63,6 +63,19 @@ CONFIG_FILE=HC5761 bash ./build-wsl.sh
 CONFIG_FILE=my-board.config bash ./build-wsl.sh
 ```
 
+一次编译全部机型（输出到 `dist/<型号>/`，每个机型同时给出 128 KiB 和
+192 KiB 两种补齐尺寸）：
+
+```sh
+bash ./build-all.sh
+```
+
+GitHub Actions 的 `.github/workflows/build.yml` 调用的就是这个脚本，因此本地
+跑出来的目录结构和 CI 产物完全一致。注意 `build-all.sh` 把镜像先收集到仓库
+外的临时目录再拷回 `dist/`：顶层 Makefile 的 `clean` 会用
+`find . -name '*.bin'` 递归删除整个仓库里的 `.bin`，直接写在仓库内会被下一个
+机型的构建清掉。
+
 不要加 `-j`：顶层旧 Makefile 把 `clean` 和各输出声明成并列依赖，并行构建
 会发生竞态。也不要执行 `make rt2880_config`；仓库把 `include/asm` 提交成了
 真实目录，而旧 `mkconfig` 仍试图把它当符号链接删除。仓库现有的
