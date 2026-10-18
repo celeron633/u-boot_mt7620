@@ -2,11 +2,14 @@
 #include "httpd.h"
 #include "fs.h"
 #include "fsdata.h"
+#include <spi_api.h>
 
 #define STATE_NONE				0		// empty state (waiting for request...)
 #define STATE_FILE_REQUEST		1		// remote host sent GET request
 #define STATE_UPLOAD_REQUEST	2		// remote host sent POST request
 #define STATE_ENV_RESET_REQUEST	3		// restore persistent environment defaults
+#define STATE_BACKUP_HEADER		4
+#define STATE_BACKUP_DATA		5
 
 // ASCII characters
 #define ISO_G					0x47	// GET
@@ -103,6 +106,52 @@ static void httpd_state_reset(void){
 		free(boundary_value);
 		boundary_value = NULL;
 	}
+}
+
+/* Read only the current segment. Re-read the same offset on retransmit;
+ * never use the memory-mapped SPI window (it cannot cover 32 MiB parts).
+ */
+static void httpd_backup_send(void){
+	unsigned int len = hs->upload > uip_mss() ? uip_mss() : hs->upload;
+
+	/* The peer may change its window while a segment is outstanding. */
+	if(uip_rexmit())
+		len = uip_conn->len;
+
+	if(hs->state == STATE_BACKUP_HEADER){
+		uip_send(hs->dataptr, len);
+	} else {
+		if(raspi_read((char *)uip_appdata,
+				hs->upload_total - hs->upload, len) != (int)len){
+			puts("## Error: flash backup read failed!\n");
+			httpd_state_reset();
+			uip_abort();
+			return;
+		}
+		uip_send(uip_appdata, len);
+	}
+}
+
+static void httpd_backup_start(void){
+	DECLARE_GLOBAL_DATA_PTR;
+
+	hs->upload_total = gd->bd->bi_flashsize;
+	if(!hs->upload_total || hs->upload_total == ~0U){
+		httpd_state_reset();
+		uip_abort();
+		return;
+	}
+
+	hs->state = STATE_BACKUP_HEADER;
+	hs->dataptr = (u8_t *)hs->backup_header;
+	hs->upload = sprintf(hs->backup_header,
+		"HTTP/1.0 200 OK\r\n"
+		"Content-Type: application/octet-stream\r\n"
+		"Content-Disposition: attachment; filename=flash-backup.bin\r\n"
+		"Content-Length: %u\r\n"
+		"Cache-Control: no-store\r\n\r\n", hs->upload_total);
+	printf("Backing up entire SPI flash: %u bytes\n", hs->upload_total);
+	httpd_backup_send();
 }
 
 // find and get first chunk of data
@@ -315,7 +364,7 @@ void httpd_appcall(void){
 				if(hs->state == STATE_FILE_REQUEST){
 
 					// we are looking for GET file name
-					for(i = 4; i < 30; i++){
+					for(i = 4; i < 30 && i < uip_len; i++){
 						if(uip_appdata[i] == ISO_space || uip_appdata[i] == ISO_cr || uip_appdata[i] == ISO_nl || uip_appdata[i] == ISO_tab){
 							uip_appdata[i] = 0;
 							i = 0;
@@ -332,6 +381,11 @@ void httpd_appcall(void){
 
 					printf("Request for: ");
 					printf("%s\n", &uip_appdata[4]);
+
+					if(!strcmp((char *)&uip_appdata[4], "/backup.bin")){
+						httpd_backup_start();
+						return;
+					}
 
 					// fsfile is a stack variable: fs_open() leaves it
 					// untouched when it fails, so never use it without
@@ -558,6 +612,24 @@ void httpd_appcall(void){
 			// if we got ACK from remote host
 			if(uip_acked()){
 
+				if(hs->state == STATE_BACKUP_HEADER || hs->state == STATE_BACKUP_DATA){
+					hs->upload -= uip_conn->len;
+					if(hs->state == STATE_BACKUP_HEADER){
+						hs->dataptr += uip_conn->len;
+						if(!hs->upload){
+							hs->state = STATE_BACKUP_DATA;
+							hs->upload = hs->upload_total;
+						}
+					}
+					if(!hs->upload){
+						httpd_state_reset();
+						uip_close();
+					} else {
+						httpd_backup_send();
+					}
+					return;
+				}
+
 				// if we are in STATE_FILE_REQUEST state
 				if(hs->state == STATE_FILE_REQUEST){
 
@@ -596,6 +668,11 @@ void httpd_appcall(void){
 
 			// if we need to retransmit
 			if(uip_rexmit()){
+
+				if(hs->state == STATE_BACKUP_HEADER || hs->state == STATE_BACKUP_DATA){
+					httpd_backup_send();
+					return;
+				}
 
 				// if we are in STATE_FILE_REQUEST state
 				if(hs->state == STATE_FILE_REQUEST){

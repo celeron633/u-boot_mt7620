@@ -9,6 +9,11 @@
 	<body>
 		<div id="m">
 			<h1>FIRMWARE UPDATE</h1>
+			<div class="i backup">
+				<strong>编程器固件备份</strong>
+				<p>下载整片 Flash，包含 U-Boot、环境变量、出厂校准和系统固件，可用于编程器恢复。</p>
+				<a class="button" href="/backup.bin" download="flash-backup.bin">备份整片 Flash</a>
+			</div>
 			<p>You are going to update <strong>firmware</strong> on the device.<br>Please, choose file from your local hard drive and click <strong>Update firmware</strong> button.</p>
 			<form method="post" enctype="multipart/form-data"><input type="file" name="firmware"><input type="submit" value="Update firmware"></form>
 			<div class="i w">

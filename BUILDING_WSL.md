@@ -33,7 +33,7 @@ wsl -d Debian --cd /mnt/d/code/u-boot_mt7620 bash ./build-wsl.sh
 bash ./build-wsl.sh
 ```
 
-脚本默认使用仓库中的 `Ai-BR100` 配置。编译斐讯 K2/PSG1218 时：
+脚本默认使用仓库中的 `HC5761` 配置，当前仅保留 192 KiB 构建。编译斐讯 K2/PSG1218 时：
 
 ```sh
 CONFIG_FILE=PSG1218 bash ./build-wsl.sh
@@ -63,8 +63,8 @@ CONFIG_FILE=HC5761 bash ./build-wsl.sh
 CONFIG_FILE=my-board.config bash ./build-wsl.sh
 ```
 
-一次编译全部机型（输出到 `dist/<型号>/`，每个机型同时给出 128 KiB 和
-192 KiB 两种补齐尺寸）：
+一次编译全部 192 KiB 机型（PSG1218、PSG1218-V22.5、YK-L1、HC5761，
+输出原始镜像和 192 KiB 补齐镜像到 `dist/<型号>/`）：
 
 ```sh
 bash ./build-all.sh
@@ -72,9 +72,7 @@ bash ./build-all.sh
 
 GitHub Actions 的 `.github/workflows/build.yml` 调用的就是这个脚本，因此本地
 跑出来的目录结构和 CI 产物完全一致。注意 `build-all.sh` 把镜像先收集到仓库
-外的临时目录再拷回 `dist/`：顶层 Makefile 的 `clean` 会用
-`find . -name '*.bin'` 递归删除整个仓库里的 `.bin`，直接写在仓库内会被下一个
-机型的构建清掉。
+外的临时目录再拷回 `dist/`，避免受到后续构建清理操作的影响。
 
 不要加 `-j`：顶层旧 Makefile 把 `clean` 和各输出声明成并列依赖，并行构建
 会发生竞态。也不要执行 `make rt2880_config`；仓库把 `include/asm` 提交成了
@@ -83,9 +81,12 @@ GitHub Actions 的 `.github/workflows/build.yml` 调用的就是这个脚本，�
 
 ## 输出
 
-`Ai-BR100` 配置选择 SPI flash 和 `UBOOT_ROM`，因此实际烧写文件是
-`uboot.bin`。`uboot_128k.bin` 是补齐到 128 KiB 的版本；`uboot.img` 带有
-旧 MTK `mkimage` 头，当前 SPI ROM 配置并不使用它。
+默认 `HC5761` 配置选择 SPI flash 和 `UBOOT_ROM`，实际烧写文件是
+`uboot.bin` 或补齐到 192 KiB 的 `uboot_192k.bin`。超过 192 KiB 会中止构建，
+不会截断镜像。`uboot.img` 带有旧 MTK `mkimage` 头，当前 SPI ROM 配置不使用它。
+
+128 KiB 构建及批量产物已禁用。`Ai-BR100` 配置文件保留供参考，但其原有
+128 KiB 分区不能写入 192 KiB 镜像；构建脚本会拒绝此配置。
 
 `PSG1218` 配置同样使用 `uboot.bin`；网页救援升级要求上传完整分区镜像时，
 使用补齐到 192 KiB 的 `uboot_192k.bin`。该配置采用以下 8 MiB flash 布局：

@@ -13,18 +13,16 @@ cross_compile=${CROSS_COMPILE:-mipsel-linux-gnu-}
 device_vendor=${DEVICE_VENDOR:-cleanwrt}
 out_dir=${OUT_DIR:-dist}
 
-# config file : model directory : real U-Boot partition size in KiB
+# config file : model directory (192 KiB U-Boot partitions only)
 boards=(
-	'Ai-BR100:Ai-BR100:128'
-	'PSG1218:PSG1218:192'
-	'PSG1218-V22.5:PSG1218-V22.5:192'
-	'YK-L1:YK-L1:192'
-	'HC5761:HC5761:192'
+	'PSG1218:PSG1218'
+	'PSG1218-V22.5:PSG1218-V22.5'
+	'YK-L1:YK-L1'
+	'HC5761:HC5761'
 )
 
 # Place uboot.bin at the start of a zero-filled partition image of $3 KiB.
-# The tree's own dd rules truncate when the build outgrows the partition;
-# refuse instead, so a short image never gets mistaken for a good one.
+# Refuse oversized images so they can never be silently truncated.
 pad() {
 	local src=$1 out=$2 kb=$3
 	local limit=$((kb * 1024)) size
@@ -60,7 +58,7 @@ manifest="$stage_dir/MANIFEST.txt"
 } > "$manifest"
 
 for entry in "${boards[@]}"; do
-	IFS=: read -r config model native <<< "$entry"
+	IFS=: read -r config model <<< "$entry"
 	echo "=== $model ($config) ==="
 
 	# No explicit clean: the tree's `all` target already depends on `clean`,
@@ -75,18 +73,16 @@ for entry in "${boards[@]}"; do
 	model_dir="$stage_dir/$model"
 	mkdir -p "$model_dir"
 	cp uboot.bin "$model_dir/${model}_uboot.bin"
-	pad uboot.bin "$model_dir/${model}_uboot_128k.bin" 128 || true
-	pad uboot.bin "$model_dir/${model}_uboot_192k.bin" 192 || true
+	pad uboot.bin "$model_dir/${model}_uboot_192k.bin" 192
 
 	cat > "$model_dir/README.txt" <<NOTE
 $model
-U-Boot partition: ${native} KiB -> flash ${model}_uboot_${native}k.bin
+U-Boot partition: 192 KiB -> flash ${model}_uboot_192k.bin
 
 ${model}_uboot.bin       raw output, no padding
-${model}_uboot_128k.bin  same image padded with zeros to 128 KiB
 ${model}_uboot_192k.bin  same image padded with zeros to 192 KiB
 
-All three hold identical code; only the trailing zero padding differs.
+Both hold identical code; only the trailing zero padding differs.
 Web recovery upload wants the image that matches the partition size.
 Writing a padded image larger than the U-Boot partition overwrites what
 follows it, so do not use the 192 KiB file on a 128 KiB partition.

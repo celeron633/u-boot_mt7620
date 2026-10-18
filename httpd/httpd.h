@@ -62,6 +62,8 @@ struct httpd_state {
 	u8_t *dataptr;
 	unsigned int upload;
 	unsigned int upload_total;
+	/* Per-connection storage: headers may span several TCP segments. */
+	char backup_header[192];
 };
 
 /* UIP_APPSTATE_SIZE: The size of the application-specific state

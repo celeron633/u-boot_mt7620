@@ -5,13 +5,18 @@ set -euo pipefail
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 cd "$repo_dir"
 
-config_file=${CONFIG_FILE:-Ai-BR100}
+config_file=${CONFIG_FILE:-HC5761}
 cross_compile=${CROSS_COMPILE:-mipsel-linux-gnu-}
 host_cc=${HOSTCC:-gcc}
 MIPSFLAGS_HINT="-mabicalls (cpu/ralink_soc/config.mk)"
 
 if [[ ! -f "$config_file" ]]; then
 	echo "Configuration not found: $config_file" >&2
+	exit 1
+fi
+
+if ! grep -qE '^(PSG1218_BOARD|YK_L1_BOARD|HC5761_BOARD)=y$' "$config_file"; then
+	echo "128 KiB builds are disabled. Select PSG1218, PSG1218-V22.5, HC5761 or YK-L1." >&2
 	exit 1
 fi
 
@@ -38,8 +43,7 @@ fi
 
 cp "$config_file" .config
 
-# Ai-BR100 is a saved menuconfig file, but the generated header was not
-# committed. Recreate the subset emitted by the old Menuconfig script.
+# Recreate the header subset emitted by the old Menuconfig script.
 awk '
 BEGIN {
 	print "/*"
@@ -122,7 +126,7 @@ if [[ -f uboot.bin ]]; then
 	echo
 	echo "Firmware: $repo_dir/uboot.bin"
 	artifacts=(uboot.bin)
-	for artifact in uboot_128k.bin uboot_192k.bin uboot.img; do
+	for artifact in uboot_192k.bin uboot.img; do
 		[[ -f "$artifact" ]] && artifacts+=("$artifact")
 	done
 	wc -c "${artifacts[@]}"

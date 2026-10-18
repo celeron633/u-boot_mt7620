@@ -207,11 +207,7 @@ endif
 #########################################################################
 #########################################################################
 
-ifneq ($(filter y,$(PSG1218_BOARD) $(YK_L1_BOARD) $(HC5761_BOARD)),)
 UBOOT_PADDED_BIN = uboot_192k.bin
-else
-UBOOT_PADDED_BIN = uboot_128k.bin
-endif
 
 ALL = u-boot.srec uboot.bin $(UBOOT_PADDED_BIN) System.map build-note
 ifneq ($(CFG_ENV_IS), IN_FLASH)
@@ -230,17 +226,21 @@ u-boot.srec:	u-boot
 uboot.bin:	u-boot
 		$(OBJCOPY) ${OBJCFLAGS} -O binary $< $@
 
-uboot_128k.bin:	uboot.bin
-		dd bs=1024 count=128 if=/dev/zero of=uboot_128k_junk1
-		cat $< uboot_128k_junk1 > uboot_128k_junk2
-		dd bs=1024 count=128 if=uboot_128k_junk2 of=$@
-		rm -rf uboot_128k_junk*
+.PHONY: uboot_128k.bin
+uboot_128k.bin:
+		@echo "128 KiB images are disabled; use a supported 192 KiB board configuration."
+		@exit 1
 
 uboot_192k.bin:	uboot.bin
-		dd bs=1024 count=192 if=/dev/zero of=uboot_192k_junk1
-		cat $< uboot_192k_junk1 > uboot_192k_junk2
-		dd bs=1024 count=192 if=uboot_192k_junk2 of=$@
-		rm -rf uboot_192k_junk*
+ifeq ($(filter y,$(PSG1218_BOARD) $(YK_L1_BOARD) $(HC5761_BOARD)),)
+		@echo "This board does not have a supported 192 KiB U-Boot partition."
+		@exit 1
+else
+		@test $$(wc -c < $<) -le 196608 || \
+			{ echo "uboot.bin exceeds the 192 KiB partition; refusing to truncate it."; exit 1; }
+		dd bs=1024 count=192 if=/dev/zero of=$@
+		dd if=$< of=$@ conv=notrunc
+endif
 
 .PHONY: build-note
 build-note:	$(UBOOT_PADDED_BIN)

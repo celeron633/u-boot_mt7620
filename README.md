@@ -14,11 +14,13 @@ SPI NOR 启动、串口/TFTP 升级和 Web failsafe。仓库已经补充现代 W
 
 | 配置文件 | 设备 | 内存 | Flash | U-Boot 分区镜像 | Firmware 布局 |
 | --- | --- | ---: | ---: | ---: | --- |
-| `Ai-BR100` | Ai-BR100（默认配置） | 64 MiB | 启动时探测 | 128 KiB | 从 `0x40000` 开始 |
 | `PSG1218` | PSG1218、斐讯 K2 v22.4 或更早版本 | 64 MiB | 8 MiB | 192 KiB | `0x50000`，大小 `0x7b0000` |
 | `PSG1218-V22.5` | 斐讯 K2 v22.5 或更新版本 | 64 MiB | 8 MiB | 192 KiB | `0xa0000`，大小 `0x760000` |
 | `HC5761` | 极路由 2 / HiWiFi HC5761 | 128 MiB | 16 MiB | 192 KiB | `0x50000`，大小 `0xf70000` |
 | `YK-L1` | 优酷路由宝 YK-L1 | 128 MiB | 32 MiB | 192 KiB | `0x50000`，大小 `0x1fb0000` |
+
+当前仅构建 192 KiB 机型，默认配置为 `HC5761`。`Ai-BR100` 的旧 128 KiB
+配置文件保留供参考，构建入口已禁用；其分区布局不能直接使用 192 KiB 镜像。
 
 设备相关注意事项：
 
@@ -45,7 +47,7 @@ SPI NOR 启动、串口/TFTP 升级和 Web failsafe。仓库已经补充现代 W
 ├── httpd/              uIP HTTP 服务及内置网页
 ├── include/            公共头文件和 MT7620 布局配置
 ├── tools/              在宿主机编译运行的 mkimage 等工具
-├── Ai-BR100            Ai-BR100 保存配置
+├── Ai-BR100            Ai-BR100 旧配置（128 KiB 构建已禁用）
 ├── PSG1218             PSG1218/K2 旧分区保存配置
 ├── PSG1218-V22.5       K2 v22.5+ 分区保存配置
 ├── HC5761              HC5761 保存配置
@@ -78,7 +80,7 @@ Java 是可选依赖；存在时会压缩内置网页的 CSS，不存在时仍�
 进入仓库后执行：
 
 ```sh
-# 默认：Ai-BR100
+# 默认：HC5761
 bash ./build-wsl.sh
 
 # PSG1218 / K2 v22.4 或更早版本
@@ -119,13 +121,12 @@ bash ./build-wsl.sh
 | 文件 | 用途 |
 | --- | --- |
 | `uboot.bin` | 原始 U-Boot 二进制，编程器或按实际长度写入时使用 |
-| `uboot_128k.bin` | 补齐到 128 KiB，供 Ai-BR100 的固定大小 Web 升级使用 |
 | `uboot_192k.bin` | 补齐到 192 KiB，供 PSG1218/K2、HC5761、YK-L1 使用 |
 | `uboot.img` | 带旧 MTK `mkimage` 头的镜像，当前 SPI ROM 配置通常不使用 |
 | `u-boot` | 含符号的 ELF 文件，用于调试和反汇编 |
 | `u-boot.map` / `System.map` | 链接映射和符号表 |
 
-烧写前应检查 `uboot.bin` 小于对应的 128 KiB 或 192 KiB U-Boot 分区，并再次
+构建仅生成 192 KiB 补齐镜像，超限会报错，不会截断。烧写前应再次
 核对设备的内存、Flash 容量和分区版本。写错布局可能覆盖环境、Factory、无线
 校准或板级信息，建议先完整备份 Flash。
 
@@ -142,6 +143,17 @@ Netmask:     255.255.255.0
 Web failsafe 会校验 U-Boot/Factory 镜像的固定大小以及固件分区上限。固件过大时
 会显示专用错误页并停止升级，不会擦写 Flash。Flash 中已经保存的环境变量优先于
 上述编译默认值；需要修改现有设备地址时，请同时检查 `ipaddr` 和 `serverip`。
+
+首页顶部提供“编程器固件备份”区域，点击“备份整片 Flash”即可下载；也可直接访问
+`http://192.168.1.1/backup.bin` 下载 `flash-backup.bin`。这是从偏移 0 开始、覆盖
+启动时探测到的整片 SPI NOR 的原始镜像，包含 U-Boot、环境变量、Factory、固件及
+机型保留分区，可供编程器恢复。下载按 TCP 分段读取，不需要把整片 Flash 放进
+RAM；支持 8/16/32 MiB，32 MiB 芯片通过 SPI 驱动的四字节地址读取高地址。
+读取失败会中断连接；HTTP `Content-Length` 是整片容量，可用于检查文件是否完整。
+
+```sh
+curl --fail --output flash-backup.bin http://192.168.1.1/backup.bin
+```
 
 首页还提供“Restore default environment”操作。确认后，U-Boot 会将编译默认值
 写入持久化环境；成功页面显示后需要重启设备。该操作通过现有 `saveenv()` 路径
