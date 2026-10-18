@@ -20,6 +20,8 @@
 #include <spi_api.h>
 
 static int arptimer = 0;
+int webfailsafe_ready_for_reboot = 0;
+extern int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char *argv[]);
 
 /*
  * U-Boot links at TEXT_BASE (flash) and copies itself into RAM, but
@@ -46,6 +48,15 @@ ulong HttpdRelocOff( void ){
 
 void HttpdHandler( void ){
 	int i;
+
+	/* Called by the network loop, outside the uIP receive callback. */
+	if ( webfailsafe_ready_for_reboot ) {
+		webfailsafe_ready_for_reboot = 0;
+		puts("HTTP reboot requested. Rebooting...\n");
+		eth_halt();
+		do_reset( NULL, 0, 0, NULL );
+		return;
+	}
 
 	if ( uip_len == 0 ) {
 		for ( i = 0; i < UIP_CONNS; i++ ) {

@@ -23,6 +23,10 @@ typedef unsigned long ulong;
 #define WEBFAILSAFE_UPLOAD_ART_SIZE_IN_BYTES 65536
 #define WEBFAILSAFE_UPLOAD_RAM_ADDRESS 0x80000000U
 #define CFG_KERN_SIZE 0xf70000U
+#define CFG_KERN_ADDR 0xbc050000U
+#define CFG_FLASH_BASE 0xbc000000U
+#define CFG_BOOTLOADER_SIZE 196608U
+#define HC5761_BOARD 1
 
 enum { CONNECT = 1, DATA = 2, ACK = 4, RETRANSMIT = 8,
        CLOSED = 16, ABORTED = 32, TIMEOUT = 64, POLL = 128 };
@@ -36,7 +40,7 @@ static struct test_conn {
 } connections[2], *uip_conn;
 static unsigned char *uip_appdata = packet;
 static unsigned int uip_len;
-static struct test_board { unsigned int bi_flashsize; } board;
+static struct test_board { unsigned long bi_flashsize, bi_memsize; } board;
 static struct { struct test_board *bd; } global_data;
 #define gd (&global_data)
 #define uip_connected() (event & CONNECT)
@@ -65,13 +69,15 @@ static int saveenv(void) { writes++; return 0; }
 #include "../httpd/httpd.c"
 #undef atoi
 
-int webfailsafe_ready_for_upgrade, webfailsafe_upgrade_type;
+int webfailsafe_ready_for_upgrade, webfailsafe_upgrade_type, webfailsafe_ready_for_reboot;
 unsigned long NetBootFileXferSize;
 unsigned char *webfailsafe_data_pointer;
 void fs_init(void) {}
 int fs_open(const char *name, struct fs_file *file) {
-    (void)name;
-    file->data = "HTTP/1.0 200 OK\r\n\r\nindex";
+    if(!strcmp(name, "/rebooting.html"))
+        file->data = "HTTP/1.0 200 OK\r\n\r\nRebooting device: the complete response must be acknowledged before the reset is scheduled.";
+    else
+        file->data = "HTTP/1.0 200 OK\r\n\r\nindex";
     file->len = strlen(file->data);
     return 1;
 }
@@ -97,11 +103,13 @@ static void deliver(unsigned int flags, const char *request) {
     httpd_appcall();
     if(sent_len) uip_conn->len = sent_len;
 }
-static void start(unsigned int size, unsigned int mss) {
+static void connect_client(unsigned int size, unsigned int mss) {
     memset(states, 0, sizeof(states));
     memset(connections, 0, sizeof(connections));
     global_data.bd = &board;
     board.bi_flashsize = size;
+    board.bi_memsize = 128U << 20;
+    webfailsafe_ready_for_reboot = 0;
     closed = aborted = fail_read = 0;
     read_count = 0;
     uip_conn = &connections[0];
@@ -109,6 +117,9 @@ static void start(unsigned int size, unsigned int mss) {
     uip_conn->mss = mss;
     uip_conn->appstate = &states[0];
     deliver(CONNECT, NULL);
+}
+static void start(unsigned int size, unsigned int mss) {
+    connect_client(size, mss);
     deliver(DATA, "GET /backup.bin HTTP/1.1\r\nHost: router\r\n\r\n");
 }
 static void check_retransmit(void) {
@@ -153,6 +164,84 @@ static void full_download(unsigned int size, unsigned int mss) {
     assert(offset == size && hs->state == STATE_NONE && !sent_len);
     assert(read_count && !writes && !webfailsafe_ready_for_upgrade);
     printf("PASS: %u MiB, MSS %u, %u segments\n", size >> 20, mss, segments);
+}
+static void check_reboot(void) {
+    unsigned int received = 0;
+    struct fs_file reply;
+    char response[512];
+    fs_open("/rebooting.html", &reply);
+    connect_client(16U << 20, 17);
+    deliver(DATA, "POST /reboot HTTP/1.1\r\nContent-Length: 0\r\n\r\n");
+    assert(hs->reboot && !webfailsafe_ready_for_reboot);
+    uip_conn = &connections[1];
+    uip_conn->lport = 80;
+    uip_conn->mss = 1446;
+    uip_conn->appstate = &states[1];
+    deliver(CONNECT, NULL);
+    deliver(DATA, "GET / HTTP/1.1\r\n\r\n");
+    deliver(ACK, NULL);
+    assert(closed && !webfailsafe_ready_for_reboot);
+    closed = 0;
+    uip_conn = &connections[0];
+    deliver(RETRANSMIT, NULL);
+    while(!closed) {
+        assert(!webfailsafe_ready_for_reboot && sent_len);
+        memcpy(response + received, sent, sent_len);
+        received += sent_len;
+        check_retransmit();
+        /* Growing the window must not ACK bytes that were never sent. */
+        uip_conn->mss = 1446;
+        deliver(ACK, NULL);
+    }
+    assert(received == (unsigned int)reply.len && !memcmp(response, reply.data, received));
+    assert(webfailsafe_ready_for_reboot && !writes && !webfailsafe_ready_for_upgrade);
+
+    connect_client(16U << 20, 17);
+    deliver(DATA, "POST /reboot HTTP/1.1\r\n\r\n");
+    deliver(TIMEOUT, NULL);
+    assert(aborted && !webfailsafe_ready_for_reboot);
+    connect_client(16U << 20, 17);
+    deliver(DATA, "POST /reboot HTTP/1.1\r\n\r\n");
+    deliver(CLOSED, NULL);
+    assert(closed && !webfailsafe_ready_for_reboot);
+    connect_client(16U << 20, 17);
+    deliver(DATA, "POST /reboot HTTP/1.1\r\n\r\n");
+    deliver(ABORTED, NULL);
+    assert(aborted && !webfailsafe_ready_for_reboot);
+    connect_client(16U << 20, 1446);
+    deliver(DATA, "GET /reboot.html HTTP/1.1\r\n\r\n");
+    deliver(ACK, NULL);
+    assert(closed && !webfailsafe_ready_for_reboot);
+    webfailsafe_ready_for_reboot = 1;
+    httpd_init();
+    assert(!webfailsafe_ready_for_reboot);
+    connect_client(16U << 20, 1446);
+    deliver(DATA, "GET /rebooting.html HTTP/1.1\r\n\r\n");
+    deliver(ACK, NULL);
+    assert(closed && !webfailsafe_ready_for_reboot);
+    puts("PASS: reboot requires POST and complete ACK; page visits, retransmits and aborted replies do not reboot");
+}
+static void check_sysinfo(void) {
+    char response[512];
+    unsigned int received = 0;
+    connect_client(16U << 20, 31);
+    deliver(DATA, "GET /sysinfo HTTP/1.1\r\n\r\n");
+    while(!closed) {
+        assert(received + sent_len < sizeof(response));
+        memcpy(response + received, sent, sent_len);
+        received += sent_len;
+        check_retransmit();
+        deliver(ACK, NULL);
+    }
+    response[received] = 0;
+    assert(strstr(response, "Content-Type: application/json\r\n"));
+    assert(strstr(response, "\"model\":\"HC5761\""));
+    assert(strstr(response, "\"ram\":134217728"));
+    assert(strstr(response, "\"flash\":16777216"));
+    assert(strstr(response, "\"firmware_limit\":16187392"));
+    assert(strstr(response, "\"firmware_offset\":327680"));
+    assert(!writes && !webfailsafe_ready_for_reboot && !webfailsafe_ready_for_upgrade);
+    puts("PASS: system info reports actual RAM/flash capacity and configured firmware layout");
 }
 int main(void) {
     unsigned int i;
@@ -206,5 +295,7 @@ int main(void) {
     assert(aborted && !sent_len);
     assert(!writes && !webfailsafe_ready_for_upgrade);
     puts("PASS: concurrent downloads, read errors, disconnects, invalid size, existing page");
+    check_reboot();
+    check_sysinfo();
     return 0;
 }

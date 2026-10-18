@@ -58,12 +58,13 @@ void httpd_appcall(void);
 
 struct httpd_state {
 	u8_t state;
+	u8_t reboot;
 	u16_t count;
 	u8_t *dataptr;
 	unsigned int upload;
 	unsigned int upload_total;
-	/* Per-connection storage: headers may span several TCP segments. */
-	char backup_header[192];
+	/* Per-connection storage for dynamic replies and backup headers. */
+	char response[384];
 };
 
 /* UIP_APPSTATE_SIZE: The size of the application-specific state

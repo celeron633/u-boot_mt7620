@@ -10,6 +10,17 @@
 #define STATE_ENV_RESET_REQUEST	3		// restore persistent environment defaults
 #define STATE_BACKUP_HEADER		4
 #define STATE_BACKUP_DATA		5
+#define STATE_REBOOT_REQUEST		6
+
+#if defined(HC5761_BOARD)
+#define HTTPD_BOARD_MODEL "HC5761"
+#elif defined(YK_L1_BOARD)
+#define HTTPD_BOARD_MODEL "YK-L1"
+#elif defined(PSG1218_V225_LAYOUT)
+#define HTTPD_BOARD_MODEL "PSG1218-V22.5"
+#else
+#define HTTPD_BOARD_MODEL "PSG1218"
+#endif
 
 // ASCII characters
 #define ISO_G					0x47	// GET
@@ -41,6 +52,7 @@ extern const struct fsdata_file file_env_reset_ok_html;
 extern const struct fsdata_file file_env_reset_fail_html;
 
 extern int webfailsafe_ready_for_upgrade;
+extern int webfailsafe_ready_for_reboot;
 extern int webfailsafe_upgrade_type;
 extern ulong NetBootFileXferSize;
 extern unsigned char *webfailsafe_data_pointer;
@@ -87,6 +99,7 @@ static void httpd_download_progress( void ){
 
 // http server init
 void httpd_init( void ) {
+	webfailsafe_ready_for_reboot = 0;
 	fs_init();
 	uip_listen( HTONS( 80 ) );
 }
@@ -94,6 +107,7 @@ void httpd_init( void ) {
 // reset app state
 static void httpd_state_reset(void){
 	hs->state = STATE_NONE;
+	hs->reboot = 0;
 	hs->count = 0;
 	hs->dataptr = 0;
 	hs->upload = 0;
@@ -143,8 +157,8 @@ static void httpd_backup_start(void){
 	}
 
 	hs->state = STATE_BACKUP_HEADER;
-	hs->dataptr = (u8_t *)hs->backup_header;
-	hs->upload = sprintf(hs->backup_header,
+	hs->dataptr = (u8_t *)hs->response;
+	hs->upload = sprintf(hs->response,
 		"HTTP/1.0 200 OK\r\n"
 		"Content-Type: application/octet-stream\r\n"
 		"Content-Disposition: attachment; filename=flash-backup.bin\r\n"
@@ -152,6 +166,23 @@ static void httpd_backup_start(void){
 		"Cache-Control: no-store\r\n\r\n", hs->upload_total);
 	printf("Backing up entire SPI flash: %u bytes\n", hs->upload_total);
 	httpd_backup_send();
+}
+
+static void httpd_sysinfo(void){
+	DECLARE_GLOBAL_DATA_PTR;
+
+	hs->state = STATE_FILE_REQUEST;
+	hs->dataptr = (u8_t *)hs->response;
+	hs->upload = sprintf(hs->response,
+		"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\n"
+		"Cache-Control: no-store\r\n\r\n"
+		"{\"model\":\"%s\",\"ram\":%lu,\"flash\":%lu,"
+		"\"firmware_limit\":%u,\"firmware_offset\":%u,\"bootloader\":%u}",
+		HTTPD_BOARD_MODEL, gd->bd->bi_memsize, gd->bd->bi_flashsize,
+		(unsigned int)CFG_KERN_SIZE,
+		(unsigned int)(CFG_KERN_ADDR - CFG_FLASH_BASE),
+		(unsigned int)CFG_BOOTLOADER_SIZE);
+	uip_send(hs->dataptr, (hs->upload > uip_mss() ? uip_mss() : hs->upload));
 }
 
 // find and get first chunk of data
@@ -342,7 +373,11 @@ void httpd_appcall(void){
 				if(uip_appdata[0] == ISO_G && uip_appdata[1] == ISO_E && uip_appdata[2] == ISO_T && (uip_appdata[3] == ISO_space || uip_appdata[3] == ISO_tab)){
 					hs->state = STATE_FILE_REQUEST;
 				} else if(uip_appdata[0] == ISO_P && uip_appdata[1] == ISO_O && uip_appdata[2] == ISO_S && uip_appdata[3] == ISO_T && (uip_appdata[4] == ISO_space || uip_appdata[4] == ISO_tab)){
-					if((uip_len >= sizeof("POST /env_reset ") - 1) &&
+					if((uip_len >= sizeof("POST /reboot ") - 1) &&
+					   !strncmp((char *)uip_appdata, "POST /reboot ",
+						sizeof("POST /reboot ") - 1)) {
+						hs->state = STATE_REBOOT_REQUEST;
+					} else if((uip_len >= sizeof("POST /env_reset ") - 1) &&
 					   !strncmp((char *)uip_appdata, "POST /env_reset ",
 						sizeof("POST /env_reset ") - 1)) {
 						hs->state = STATE_ENV_RESET_REQUEST;
@@ -386,6 +421,10 @@ void httpd_appcall(void){
 						httpd_backup_start();
 						return;
 					}
+					if(!strcmp((char *)&uip_appdata[4], "/sysinfo")){
+						httpd_sysinfo();
+						return;
+					}
 
 					// fsfile is a stack variable: fs_open() leaves it
 					// untouched when it fails, so never use it without
@@ -426,6 +465,20 @@ void httpd_appcall(void){
 					hs->upload = fsfile.len;
 
 					// send first (and maybe the last) chunk of data
+					uip_send(hs->dataptr, (hs->upload > uip_mss() ? uip_mss() : hs->upload));
+					return;
+
+				} else if(hs->state == STATE_REBOOT_REQUEST){
+
+					if(!fs_open("/rebooting.html", &fsfile) || !fsfile.data || fsfile.len <= 0){
+						httpd_state_reset();
+						uip_abort();
+						return;
+					}
+					hs->state = STATE_FILE_REQUEST;
+					hs->reboot = 1;
+					hs->dataptr = (u8_t *)fsfile.data;
+					hs->upload = fsfile.len;
 					uip_send(hs->dataptr, (hs->upload > uip_mss() ? uip_mss() : hs->upload));
 					return;
 
@@ -635,7 +688,11 @@ void httpd_appcall(void){
 
 					// data which we send last time was received (we got ACK)
 					// if we send everything last time -> gently close the connection
-					if(hs->upload <= uip_mss()){
+					if(hs->upload <= uip_conn->len){
+
+						/* Reset outside the TCP callback, after the whole reply is ACKed. */
+						if(hs->reboot)
+							webfailsafe_ready_for_reboot = 1;
 
 						// post upload completed?
 						if(webfailsafe_post_done){
@@ -677,7 +734,7 @@ void httpd_appcall(void){
 				// if we are in STATE_FILE_REQUEST state
 				if(hs->state == STATE_FILE_REQUEST){
 					// send again chunk of data without changing pointer and length of data left to send
-					uip_send(hs->dataptr, (hs->upload > uip_mss() ? uip_mss() : hs->upload));
+					uip_send(hs->dataptr, uip_conn->len);
 				}
 
 				return;

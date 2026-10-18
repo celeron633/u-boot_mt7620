@@ -15,9 +15,9 @@ sudo apt-get install -y \
   zlib1g-dev
 ```
 
-其中宿主 GCC 只编译 `tools/mkimage`，MIPS GCC 编译 U-Boot 本体。Java 是
-可选的；存在时会用仓库自带的 YUI Compressor 压缩内置 HTTP 页面的 CSS，
-不存在时生成器会自动使用未压缩内容。
+其中宿主 GCC 只编译 `tools/mkimage`，MIPS GCC 编译 U-Boot 本体。内置 Web
+资源直接生成，无需 Java。生成器保留 JavaScript 换行并设置正确 MIME 类型；CSS
+不再交给不支持 CSS 变量和现代媒体查询的旧 YUI Compressor。
 
 ## 构建
 

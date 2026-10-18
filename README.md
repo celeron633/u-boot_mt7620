@@ -73,7 +73,7 @@ sudo apt-get install -y \
 ```
 
 宿主 GCC 只用于编译 `tools/mkimage`，`mipsel-linux-gnu-gcc` 用于编译 U-Boot。
-Java 是可选依赖；存在时会压缩内置网页的 CSS，不存在时仍可正常构建。
+内置网页资源由脚本直接生成，无需 Java 或前端构建工具。
 
 ### 2. 选择设备并构建
 
@@ -144,7 +144,12 @@ Web failsafe 会校验 U-Boot/Factory 镜像的固定大小以及固件分区上
 会显示专用错误页并停止升级，不会擦写 Flash。Flash 中已经保存的环境变量优先于
 上述编译默认值；需要修改现有设备地址时，请同时检查 `ipaddr` 和 `serverip`。
 
-首页顶部提供“编程器固件备份”区域，点击“备份整片 Flash”即可下载；也可直接访问
+左侧导航提供“固件升级、备份、重启、环境设置”，支持中英切换、浅色/深色主题和
+手机布局。样式参考 [Yuzhii0718/uboot-mt7621-dhcpd](https://github.com/Yuzhii0718/uboot-mt7621-dhcpd)
+（`682d413d92c6`）；未移植 U-Boot 更新、Initramfs 启动和 Factory 更新页面。
+设备信息来自 `/sysinfo`，显示当前探测的 RAM/Flash 容量及配置的固件分区。
+
+进入“备份”页面，点击“下载完整备份”；也可直接访问
 `http://192.168.1.1/backup.bin` 下载 `flash-backup.bin`。这是从偏移 0 开始、覆盖
 启动时探测到的整片 SPI NOR 的原始镜像，包含 U-Boot、环境变量、Factory、固件及
 机型保留分区，可供编程器恢复。下载按 TCP 分段读取，不需要把整片 Flash 放进
@@ -155,9 +160,25 @@ RAM；支持 8/16/32 MiB，32 MiB 芯片通过 SPI 驱动的四字节地址读�
 curl --fail --output flash-backup.bin http://192.168.1.1/backup.bin
 ```
 
-首页还提供“Restore default environment”操作。确认后，U-Boot 会将编译默认值
+“环境设置”页面提供“恢复默认环境”。确认后，U-Boot 会将编译默认值
 写入持久化环境；成功页面显示后需要重启设备。该操作通过现有 `saveenv()` 路径
 保留环境扇区中的其他内容，不会直接擦除整个扇区。
+
+“重启”页面点击“立即重启”并确认后，通过 `POST /reboot` 请求重启。服务器在
+整个结果页被浏览器确认收到后才复位，普通页面访问不会触发重启。重启和固件写入
+的结果页均自带样式，无需在服务器停止后继续加载资源。
+
+HTTP 宿主模拟测试可在仓库根目录运行：
+
+```sh
+cc -std=c99 -O2 -Wno-pointer-to-int-cast -idirafter include tools/test_http_backup.c -o /tmp/test_http_backup
+/tmp/test_http_backup
+```
+
+可选浏览器检查需要 Playwright 和 Chromium；完成构建后运行
+`python tools/test_recovery_ui.py --screenshots /tmp/recovery-preview`，会使用生成的
+`fsdata.c` 检查页面、主题/语言、下载、重启确认和表单。设备接口由测试服务器模拟，
+不会连接真实路由器。
 
 ## 许可证
 
