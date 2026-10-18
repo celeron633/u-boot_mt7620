@@ -7,6 +7,23 @@ SPI NOR 启动、串口/TFTP 升级和 Web failsafe。仓库已经补充现代 W
 原版 U-Boot 说明文档保存在 [`README.old`](README.old)，更完整的 WSL 构建与设备
 分区说明见 [`BUILDING_WSL.md`](BUILDING_WSL.md)。
 
+## Web 界面预览
+
+内置 Web 恢复页面支持固件升级、整片 Flash 备份和重启，提供中英切换、浅色/深色主题
+以及手机布局。下面的截图来自浏览器预览，设备信息以 HC5761 模拟接口为例。
+
+### 固件升级 · 浅色主题
+
+![Web 固件升级页面：左侧导航、设备信息和固件上传入口](doc/images/web-firmware-desktop.png)
+
+### 整片 Flash 备份 · 深色主题
+
+![深色主题的整片 Flash 备份页面：显示备份容量和下载入口](doc/images/web-backup-dark.png)
+
+### 手机布局
+
+<img src="doc/images/web-firmware-mobile.png" alt="手机上的 Web 恢复页面：顶部导航和固件升级表单" width="320">
+
 ## 支持的设备
 
 以下配置均为 MT7620、DDR2、16-bit DRAM 总线和 SPI NOR，链接地址为
